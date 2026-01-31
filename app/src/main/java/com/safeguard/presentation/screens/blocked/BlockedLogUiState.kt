@@ -1,9 +1,7 @@
 package com.safeguard.presentation.screens.blocked
 
-import com.safeguard.domain.model.BlockedLog
-
 data class BlockedLogUiState(
-        val logs: List<BlockedLog> = emptyList(),
+        val logs: List<BlockedLogUiModel> = emptyList(),
         val selectedFilter: FilterType = FilterType.ALL,
         val isLoading: Boolean = true
 )

@@ -39,7 +39,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun BlockedLogCard(log: BlockedLog, onAddToWhitelist: () -> Unit) {
+fun BlockedLogCard(log: BlockedLog, contactName: String? = null, onAddToWhitelist: () -> Unit) {
     val iconColor = if (log.type == BlockType.CALL) BlockedCallColor else BlockedSmsColor
     val icon =
             if (log.type == BlockType.CALL) Icons.Default.Call
@@ -74,12 +74,28 @@ fun BlockedLogCard(log: BlockedLog, onAddToWhitelist: () -> Unit) {
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                        text = PhoneNumberUtils.formatForDisplay(log.phoneNumber),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                )
+                val formattedNumber = PhoneNumberUtils.formatForDisplay(log.phoneNumber)
+
+                if (contactName != null) {
+                    Text(
+                            text = contactName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                            text = formattedNumber,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Text(
+                            text = formattedNumber,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
 
                 if (log.preview != null) {
                     Text(

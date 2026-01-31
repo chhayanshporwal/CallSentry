@@ -20,7 +20,8 @@ class BlockedLogViewModel
 @Inject
 constructor(
         private val blockedLogRepository: BlockedLogRepository,
-        private val whitelistRepository: WhitelistRepository
+        private val whitelistRepository: WhitelistRepository,
+        private val contactUtils: com.safeguard.util.ContactUtils
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BlockedLogUiState())
@@ -37,12 +38,9 @@ constructor(
         collectionJob =
                 viewModelScope.launch {
                     blockedLogRepository.getAllLogs().collect { logs ->
-                        _uiState.update { state ->
-                            state.copy(
-                                    logs = filterLogs(logs, state.selectedFilter),
-                                    isLoading = false
-                            )
-                        }
+                        val filtered = filterLogs(logs, _uiState.value.selectedFilter)
+                        val uiModels = mapToUiModels(filtered)
+                        _uiState.update { state -> state.copy(logs = uiModels, isLoading = false) }
                     }
                 }
     }
@@ -64,8 +62,17 @@ constructor(
                                 FilterType.SMS -> blockedLogRepository.getLogsByType(BlockType.SMS)
                             }
 
-                    flow.collect { logs -> _uiState.update { it.copy(logs = logs) } }
+                    flow.collect { logs ->
+                        val uiModels = mapToUiModels(logs)
+                        _uiState.update { it.copy(logs = uiModels) }
+                    }
                 }
+    }
+
+    private suspend fun mapToUiModels(logs: List<BlockedLog>): List<BlockedLogUiModel> {
+        return logs.map { log ->
+            BlockedLogUiModel(log = log, name = contactUtils.getContactName(log.phoneNumber))
+        }
     }
 
     private fun filterLogs(logs: List<BlockedLog>, filter: FilterType): List<BlockedLog> {
@@ -78,7 +85,11 @@ constructor(
 
     fun addToWhitelist(log: BlockedLog) {
         viewModelScope.launch {
-            whitelistRepository.addContact(WhitelistContact(phoneNumber = log.phoneNumber))
+            // We can also try to resolve name here when adding to whitelist
+            val name = contactUtils.getContactName(log.phoneNumber)
+            whitelistRepository.addContact(
+                    WhitelistContact(phoneNumber = log.phoneNumber, displayName = name)
+            )
         }
     }
 
@@ -86,3 +97,5 @@ constructor(
         viewModelScope.launch { blockedLogRepository.clearAll() }
     }
 }
+
+data class BlockedLogUiModel(val log: BlockedLog, val name: String? = null)

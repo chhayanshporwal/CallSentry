@@ -149,8 +149,12 @@ fun BlockedLogScreen(viewModel: BlockedLogViewModel = hiltViewModel()) {
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.simpleVerticalScrollbar(scrollState)
             ) {
-                items(uiState.logs, key = { it.id }) { log ->
-                    BlockedLogCard(log = log, onAddToWhitelist = { viewModel.addToWhitelist(log) })
+                items(uiState.logs, key = { it.log.id }) { uiModel ->
+                    BlockedLogCard(
+                            log = uiModel.log,
+                            contactName = uiModel.name,
+                            onAddToWhitelist = { viewModel.addToWhitelist(uiModel.log) }
+                    )
                 }
             }
         }
