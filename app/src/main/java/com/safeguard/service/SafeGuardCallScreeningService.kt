@@ -15,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 @AndroidEntryPoint
 class SafeGuardCallScreeningService : CallScreeningService() {
@@ -29,38 +28,39 @@ class SafeGuardCallScreeningService : CallScreeningService() {
     override fun onScreenCall(callDetails: Call.Details) {
         val phoneNumber = callDetails.handle?.schemeSpecificPart ?: ""
 
-        // Check if blocking is enabled
-        val isBlockingEnabled = runBlocking {
-            settingsDataStore.isBlockingEnabled.first() &&
-                    settingsDataStore.isCallBlockingEnabled.first()
+        serviceScope.launch {
+            // Check if blocking is enabled
+            val isBlockingEnabled =
+                    settingsDataStore.isBlockingEnabled.first() &&
+                            settingsDataStore.isCallBlockingEnabled.first()
+
+            if (!isBlockingEnabled) {
+                // Blocking disabled, allow all calls
+                respondToCall(callDetails, createAllowResponse())
+                return@launch
+            }
+
+            // Check emergency numbers - always allow
+            if (PhoneNumberUtils.isEmergencyNumber(phoneNumber)) {
+                respondToCall(callDetails, createAllowResponse())
+                return@launch
+            }
+
+            // Check whitelist
+            val isWhitelisted = whitelistRepository.isCallAllowed(phoneNumber)
+
+            val response =
+                    if (isWhitelisted) {
+                        // Allow whitelisted numbers
+                        createAllowResponse()
+                    } else {
+                        // Block non-whitelisted numbers and log
+                        logBlockedCall(phoneNumber)
+                        createBlockResponse()
+                    }
+
+            respondToCall(callDetails, response)
         }
-
-        if (!isBlockingEnabled) {
-            // Blocking disabled, allow all calls
-            respondToCall(callDetails, createAllowResponse())
-            return
-        }
-
-        // Check emergency numbers - always allow
-        if (PhoneNumberUtils.isEmergencyNumber(phoneNumber)) {
-            respondToCall(callDetails, createAllowResponse())
-            return
-        }
-
-        // Check whitelist
-        val isWhitelisted = runBlocking { whitelistRepository.isCallAllowed(phoneNumber) }
-
-        val response =
-                if (isWhitelisted) {
-                    // Allow whitelisted numbers
-                    createAllowResponse()
-                } else {
-                    // Block non-whitelisted numbers and log
-                    logBlockedCall(phoneNumber)
-                    createBlockResponse()
-                }
-
-        respondToCall(callDetails, response)
     }
 
     private fun createAllowResponse(): CallResponse {

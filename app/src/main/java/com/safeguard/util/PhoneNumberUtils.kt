@@ -85,6 +85,6 @@ object PhoneNumberUtils {
                         "999", // UK
                         "000" // Australia
                 )
-        return emergencyNumbers.any { normalized == it || normalized.endsWith(it) }
+        return emergencyNumbers.any { normalized == it }
     }
 }

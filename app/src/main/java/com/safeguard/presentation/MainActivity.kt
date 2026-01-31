@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
                         bottomBar = {
                             NavigationBar(
                                     containerColor = MaterialTheme.colorScheme.surface,
-                                    tonalElevation = androidx.compose.ui.unit.dp.times(0)
+                                    tonalElevation = androidx.compose.ui.unit.Dp(0f)
                             ) {
                                 Screen.bottomNavItems.forEach { screen ->
                                     val selected =
@@ -83,7 +83,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                ) { innerPadding -> NavGraph(navController = navController) }
+                ) { innerPadding ->
+                    NavGraph(navController = navController, paddingValues = innerPadding)
+                }
             }
         }
     }

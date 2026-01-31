@@ -14,11 +14,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.AlertDialog
@@ -42,187 +42,197 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.safeguard.presentation.common.simpleVerticalScrollbar
 import com.safeguard.presentation.theme.Error
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
-    val uiState by viewModel.uiState.collectAsState()
-    var showClearLogsDialog by remember { mutableStateOf(false) }
-    var showClearWhitelistDialog by remember { mutableStateOf(false) }
+        val uiState by viewModel.uiState.collectAsState()
+        var showClearLogsDialog by remember { mutableStateOf(false) }
+        var showClearWhitelistDialog by remember { mutableStateOf(false) }
 
-    Column(
-            modifier =
-                    Modifier.fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background)
-                            .verticalScroll(rememberScrollState())
-                            .padding(16.dp)
-    ) {
-        // Header
-        Text(
-                text = "Settings",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-        )
+        val scrollState = rememberScrollState()
+        Column(
+                modifier =
+                        Modifier.fillMaxSize()
+                                .background(MaterialTheme.colorScheme.background)
+                                .simpleVerticalScrollbar(scrollState)
+                                .verticalScroll(scrollState)
+                                .padding(16.dp)
+        ) {
+                // Header
+                Text(
+                        text = "Settings",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                )
 
-        Text(
-                text = "Configure your protection",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+                Text(
+                        text = "Configure your protection",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
-        Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-        // Protection Settings Section
-        SettingsSection(title = "Protection") {
-            SettingsSwitchItem(
-                    icon = Icons.Default.Shield,
-                    title = "Enable Protection",
-                    subtitle = "Block all unknown calls and SMS",
-                    isChecked = uiState.isBlockingEnabled,
-                    onCheckedChange = { viewModel.toggleBlocking() }
-            )
+                // Protection Settings Section
+                SettingsSection(title = "Protection") {
+                        SettingsSwitchItem(
+                                icon = Icons.Default.Shield,
+                                title = "Enable Protection",
+                                subtitle = "Block all unknown calls and SMS",
+                                isChecked = uiState.isBlockingEnabled,
+                                onCheckedChange = { viewModel.toggleBlocking() }
+                        )
 
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
-            SettingsSwitchItem(
-                    icon = Icons.Default.Call,
-                    title = "Block Calls",
-                    subtitle = "Block incoming calls from unknown numbers",
-                    isChecked = uiState.isCallBlockingEnabled,
-                    onCheckedChange = { viewModel.toggleCallBlocking() },
-                    enabled = uiState.isBlockingEnabled
-            )
+                        SettingsSwitchItem(
+                                icon = Icons.Default.Call,
+                                title = "Block Calls",
+                                subtitle = "Block incoming calls from unknown numbers",
+                                isChecked = uiState.isCallBlockingEnabled,
+                                onCheckedChange = { viewModel.toggleCallBlocking() },
+                                enabled = uiState.isBlockingEnabled
+                        )
 
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
-            SettingsSwitchItem(
-                    icon = Icons.Default.Message,
-                    title = "Block SMS",
-                    subtitle = "Block incoming SMS from unknown numbers",
-                    isChecked = uiState.isSmsBlockingEnabled,
-                    onCheckedChange = { viewModel.toggleSmsBlocking() },
-                    enabled = uiState.isBlockingEnabled
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Security Section
-        SettingsSection(title = "Security") {
-            SettingsSwitchItem(
-                    icon = Icons.Default.Lock,
-                    title = "PIN Protection",
-                    subtitle = "Require PIN to access settings",
-                    isChecked = uiState.isPinEnabled,
-                    onCheckedChange = { viewModel.togglePinEnabled() }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Data Section
-        SettingsSection(title = "Data") {
-            SettingsClickableItem(
-                    icon = Icons.Default.Block,
-                    title = "Clear Blocked Logs",
-                    subtitle = "Delete all blocked call and SMS history",
-                    onClick = { showClearLogsDialog = true },
-                    isDestructive = true
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-
-            SettingsClickableItem(
-                    icon = Icons.Default.People,
-                    title = "Clear Whitelist",
-                    subtitle = "Remove all whitelisted contacts",
-                    onClick = { showClearWhitelistDialog = true },
-                    isDestructive = true
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // About Section
-        SettingsSection(title = "About") {
-            SettingsClickableItem(
-                    icon = Icons.Default.Info,
-                    title = "SafeGuard",
-                    subtitle = "Version 1.0.0",
-                    onClick = {}
-            )
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-    }
-
-    // Clear Logs Dialog
-    if (showClearLogsDialog) {
-        AlertDialog(
-                onDismissRequest = { showClearLogsDialog = false },
-                title = { Text("Clear Blocked Logs") },
-                text = {
-                    Text(
-                            "Are you sure you want to delete all blocked call and SMS history? This action cannot be undone."
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                            onClick = {
-                                viewModel.clearBlockedLogs()
-                                showClearLogsDialog = false
-                            }
-                    ) { Text("Clear", color = Error) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showClearLogsDialog = false }) { Text("Cancel") }
+                        SettingsSwitchItem(
+                                icon = Icons.AutoMirrored.Filled.Message,
+                                title = "Block SMS",
+                                subtitle = "Block incoming SMS from unknown numbers",
+                                isChecked = uiState.isSmsBlockingEnabled,
+                                onCheckedChange = { viewModel.toggleSmsBlocking() },
+                                enabled = uiState.isBlockingEnabled
+                        )
                 }
-        )
-    }
 
-    // Clear Whitelist Dialog
-    if (showClearWhitelistDialog) {
-        AlertDialog(
-                onDismissRequest = { showClearWhitelistDialog = false },
-                title = { Text("Clear Whitelist") },
-                text = {
-                    Text(
-                            "Are you sure you want to remove all whitelisted contacts? All calls and SMS will be blocked until you add contacts again."
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                            onClick = {
-                                viewModel.clearWhitelist()
-                                showClearWhitelistDialog = false
-                            }
-                    ) { Text("Clear", color = Error) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showClearWhitelistDialog = false }) { Text("Cancel") }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Security Section
+                SettingsSection(title = "Security") {
+                        SettingsSwitchItem(
+                                icon = Icons.Default.Lock,
+                                title = "PIN Protection",
+                                subtitle = "Require PIN to access settings",
+                                isChecked = uiState.isPinEnabled,
+                                onCheckedChange = { viewModel.togglePinEnabled() }
+                        )
                 }
-        )
-    }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Data Section
+                SettingsSection(title = "Data") {
+                        SettingsClickableItem(
+                                icon = Icons.Default.Block,
+                                title = "Clear Blocked Logs",
+                                subtitle = "Delete all blocked call and SMS history",
+                                onClick = { showClearLogsDialog = true },
+                                isDestructive = true
+                        )
+
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                        SettingsClickableItem(
+                                icon = Icons.Default.People,
+                                title = "Clear Whitelist",
+                                subtitle = "Remove all whitelisted contacts",
+                                onClick = { showClearWhitelistDialog = true },
+                                isDestructive = true
+                        )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // About Section
+                SettingsSection(title = "About") {
+                        SettingsClickableItem(
+                                icon = Icons.Default.Info,
+                                title = "SafeGuard",
+                                subtitle = "Version 1.0.0",
+                                onClick = {}
+                        )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        // Clear Logs Dialog
+        if (showClearLogsDialog) {
+                AlertDialog(
+                        onDismissRequest = { showClearLogsDialog = false },
+                        title = { Text("Clear Blocked Logs") },
+                        text = {
+                                Text(
+                                        "Are you sure you want to delete all blocked call and SMS history? This action cannot be undone."
+                                )
+                        },
+                        confirmButton = {
+                                TextButton(
+                                        onClick = {
+                                                viewModel.clearBlockedLogs()
+                                                showClearLogsDialog = false
+                                        }
+                                ) { Text("Clear", color = Error) }
+                        },
+                        dismissButton = {
+                                TextButton(onClick = { showClearLogsDialog = false }) {
+                                        Text("Cancel")
+                                }
+                        }
+                )
+        }
+
+        // Clear Whitelist Dialog
+        if (showClearWhitelistDialog) {
+                AlertDialog(
+                        onDismissRequest = { showClearWhitelistDialog = false },
+                        title = { Text("Clear Whitelist") },
+                        text = {
+                                Text(
+                                        "Are you sure you want to remove all whitelisted contacts? All calls and SMS will be blocked until you add contacts again."
+                                )
+                        },
+                        confirmButton = {
+                                TextButton(
+                                        onClick = {
+                                                viewModel.clearWhitelist()
+                                                showClearWhitelistDialog = false
+                                        }
+                                ) { Text("Clear", color = Error) }
+                        },
+                        dismissButton = {
+                                TextButton(onClick = { showClearWhitelistDialog = false }) {
+                                        Text("Cancel")
+                                }
+                        }
+                )
+        }
 }
 
 @Composable
 fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Column {
-        Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 8.dp)
-        )
+        Column {
+                Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                )
 
-        Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) { content() }
-    }
+                Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors =
+                                CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surface
+                                )
+                ) { content() }
+        }
 }
 
 @Composable
@@ -234,37 +244,37 @@ fun SettingsSwitchItem(
         onCheckedChange: (Boolean) -> Unit,
         enabled: Boolean = true
 ) {
-    Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint =
-                        if (enabled) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+        ) {
+                Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint =
+                                if (enabled) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
-        Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
-            Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color =
-                            if (enabled) MaterialTheme.colorScheme.onSurface
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                        Text(
+                                text = title,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color =
+                                        if (enabled) MaterialTheme.colorScheme.onSurface
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                                text = subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                }
+
+                Switch(checked = isChecked, onCheckedChange = onCheckedChange, enabled = enabled)
         }
-
-        Switch(checked = isChecked, onCheckedChange = onCheckedChange, enabled = enabled)
-    }
 }
 
 @Composable
@@ -275,29 +285,31 @@ fun SettingsClickableItem(
         onClick: () -> Unit,
         isDestructive: Boolean = false
 ) {
-    Row(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = if (isDestructive) Error else MaterialTheme.colorScheme.primary
-        )
+        Row(
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+        ) {
+                Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = if (isDestructive) Error else MaterialTheme.colorScheme.primary
+                )
 
-        Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
-            Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isDestructive) Error else MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                        Text(
+                                text = title,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color =
+                                        if (isDestructive) Error
+                                        else MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                                text = subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                }
         }
-    }
 }

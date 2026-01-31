@@ -26,18 +26,25 @@ constructor(
     private val _uiState = MutableStateFlow(BlockedLogUiState())
     val uiState: StateFlow<BlockedLogUiState> = _uiState.asStateFlow()
 
+    private var collectionJob: kotlinx.coroutines.Job? = null
+
     init {
         loadLogs()
     }
 
     private fun loadLogs() {
-        viewModelScope.launch {
-            blockedLogRepository.getAllLogs().collect { logs ->
-                _uiState.update { state ->
-                    state.copy(logs = filterLogs(logs, state.selectedFilter), isLoading = false)
+        collectionJob?.cancel()
+        collectionJob =
+                viewModelScope.launch {
+                    blockedLogRepository.getAllLogs().collect { logs ->
+                        _uiState.update { state ->
+                            state.copy(
+                                    logs = filterLogs(logs, state.selectedFilter),
+                                    isLoading = false
+                            )
+                        }
+                    }
                 }
-            }
-        }
     }
 
     fun setFilter(filter: FilterType) {
@@ -46,16 +53,19 @@ constructor(
     }
 
     private fun loadFilteredLogs(filter: FilterType) {
-        viewModelScope.launch {
-            val flow =
-                    when (filter) {
-                        FilterType.ALL -> blockedLogRepository.getAllLogs()
-                        FilterType.CALLS -> blockedLogRepository.getLogsByType(BlockType.CALL)
-                        FilterType.SMS -> blockedLogRepository.getLogsByType(BlockType.SMS)
-                    }
+        collectionJob?.cancel()
+        collectionJob =
+                viewModelScope.launch {
+                    val flow =
+                            when (filter) {
+                                FilterType.ALL -> blockedLogRepository.getAllLogs()
+                                FilterType.CALLS ->
+                                        blockedLogRepository.getLogsByType(BlockType.CALL)
+                                FilterType.SMS -> blockedLogRepository.getLogsByType(BlockType.SMS)
+                            }
 
-            flow.collect { logs -> _uiState.update { it.copy(logs = logs) } }
-        }
+                    flow.collect { logs -> _uiState.update { it.copy(logs = logs) } }
+                }
     }
 
     private fun filterLogs(logs: List<BlockedLog>, filter: FilterType): List<BlockedLog> {

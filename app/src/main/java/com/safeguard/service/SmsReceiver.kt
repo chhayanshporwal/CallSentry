@@ -17,7 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 @AndroidEntryPoint
 class SmsReceiver : BroadcastReceiver() {
@@ -33,35 +32,42 @@ class SmsReceiver : BroadcastReceiver() {
             return
         }
 
-        // Check if blocking is enabled
-        val isBlockingEnabled = runBlocking {
-            settingsDataStore.isBlockingEnabled.first() &&
-                    settingsDataStore.isSmsBlockingEnabled.first()
-        }
+        val pendingResult = goAsync()
 
-        if (!isBlockingEnabled) {
-            return // Blocking disabled, let SMS through
-        }
+        receiverScope.launch {
+            try {
+                // Check if blocking is enabled
+                val isBlockingEnabled =
+                        settingsDataStore.isBlockingEnabled.first() &&
+                                settingsDataStore.isSmsBlockingEnabled.first()
 
-        val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
+                if (!isBlockingEnabled) {
+                    return@launch // Blocking disabled, let SMS through
+                }
 
-        for (sms in messages) {
-            val sender = sms.originatingAddress ?: continue
+                val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
 
-            // Check emergency numbers - always allow
-            if (PhoneNumberUtils.isEmergencyNumber(sender)) {
-                continue
-            }
+                for (sms in messages) {
+                    val sender = sms.originatingAddress ?: continue
 
-            // Check whitelist
-            val isWhitelisted = runBlocking { whitelistRepository.isSmsAllowed(sender) }
+                    // Check emergency numbers - always allow
+                    if (PhoneNumberUtils.isEmergencyNumber(sender)) {
+                        continue
+                    }
 
-            if (!isWhitelisted) {
-                // Abort broadcast to prevent SMS from being received
-                abortBroadcast()
+                    // Check whitelist
+                    val isWhitelisted = whitelistRepository.isSmsAllowed(sender)
 
-                // Log the blocked SMS
-                logBlockedSms(sender, sms.messageBody)
+                    if (!isWhitelisted) {
+                        // Abort broadcast to prevent SMS from being received
+                        abortBroadcast()
+
+                        // Log the blocked SMS
+                        logBlockedSms(sender, sms.messageBody)
+                    }
+                }
+            } finally {
+                pendingResult.finish()
             }
         }
     }

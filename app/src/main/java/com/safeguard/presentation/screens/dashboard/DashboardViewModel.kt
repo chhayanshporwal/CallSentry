@@ -39,7 +39,8 @@ constructor(
                             blockedLogRepository.getBlockedCallsCountToday(),
                             blockedLogRepository.getBlockedSmsCountToday(),
                             whitelistRepository.getContactCount(),
-                            whitelistRepository.getAllContacts()
+                            whitelistRepository.getAllContacts(),
+                            blockedLogRepository.getAllLogs()
                     ) { values ->
                 DashboardUiState(
                         isBlockingEnabled = values[0] as Boolean,
@@ -53,6 +54,10 @@ constructor(
                                         .take(5)
                                         .filterIsInstance<
                                                 com.safeguard.domain.model.WhitelistContact>(),
+                        recentBlockedLogs =
+                                (values[7] as List<*>)
+                                        .take(5)
+                                        .filterIsInstance<com.safeguard.domain.model.BlockedLog>(),
                         isLoading = false
                 )
             }
@@ -78,6 +83,14 @@ constructor(
         viewModelScope.launch {
             val newValue = !_uiState.value.isSmsBlockingEnabled
             settingsDataStore.setSmsBlockingEnabled(newValue)
+        }
+    }
+
+    fun addToWhitelist(log: com.safeguard.domain.model.BlockedLog) {
+        viewModelScope.launch {
+            whitelistRepository.addContact(
+                    com.safeguard.domain.model.WhitelistContact(phoneNumber = log.phoneNumber)
+            )
         }
     }
 }
