@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SafeGuard</string>
+    
+    <!-- Dashboard -->
+    <string name="protection_enabled">Protection Enabled</string>
+    <string name="protection_disabled">Protection Disabled</string>
+    <string name="calls_blocked_today">Calls Blocked Today</string>
+    <string name="sms_blocked_today">SMS Blocked Today</string>
+    <string name="whitelist_contacts">Whitelisted Contacts</string>
+    
+    <!-- Navigation -->
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_whitelist">Whitelist</string>
+    <string name="nav_blocked">Blocked</string>
+    <string name="nav_settings">Settings</string>
+    
+    <!-- Whitelist -->
+    <string name="add_contact">Add Contact</string>
+    <string name="add_from_contacts">Add from Contacts</string>
+    <string name="add_manually">Add Manually</string>
+    <string name="search_contacts">Search contacts</string>
+    <string name="remove_from_whitelist">Remove from Whitelist</string>
+    <string name="contact_removed">Contact removed from whitelist</string>
+    <string name="contact_added">Contact added to whitelist</string>
+    
+    <!-- Blocked Log -->
+    <string name="blocked_calls">Blocked Calls</string>
+    <string name="blocked_sms">Blocked SMS</string>
+    <string name="no_blocked_items">No blocked items yet</string>
+    <string name="clear_log">Clear Log</string>
+    <string name="add_to_whitelist">Add to Whitelist</string>
+    
+    <!-- Settings -->
+    <string name="enable_call_blocking">Enable Call Blocking</string>
+    <string name="enable_sms_blocking">Enable SMS Blocking</string>
+    <string name="pin_protection">PIN Protection</string>
+    <string name="set_pin">Set PIN</string>
+    <string name="change_pin">Change PIN</string>
+    <string name="emergency_numbers">Emergency Numbers</string>
+    <string name="about">About</string>
+    <string name="version">Version</string>
+    
+    <!-- Permissions -->
+    <string name="permission_required">Permission Required</string>
+    <string name="call_permission_rationale">SafeGuard needs phone permissions to block unwanted calls.</string>
+    <string name="sms_permission_rationale">SafeGuard needs SMS permissions to block unwanted messages.</string>
+    <string name="contacts_permission_rationale">SafeGuard needs contacts permission to import your trusted contacts.</string>
+    
+    <!-- Dialogs -->
+    <string name="confirm">Confirm</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="save">Save</string>
+    <string name="enter_phone_number">Enter phone number</string>
+    <string name="enter_name">Enter name (optional)</string>
+</resources>
