@@ -23,6 +23,10 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @javax.inject.Inject
+    lateinit var settingsDataStore: com.safeguard.data.preferences.SettingsDataStore
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -33,58 +37,73 @@ class MainActivity : ComponentActivity() {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
 
+                // Check if first launch
+                val isFirstLaunch by settingsDataStore.isFirstLaunch.collectAsState(initial = true)
+                val startDestination =
+                        if (isFirstLaunch) Screen.Onboarding.route else Screen.Dashboard.route
+
+                // Hide bottom bar on Onboarding screen
+                val showBottomBar = currentDestination?.route != Screen.Onboarding.route
+
                 Scaffold(
                         bottomBar = {
-                            NavigationBar(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    tonalElevation = androidx.compose.ui.unit.Dp(0f)
-                            ) {
-                                Screen.bottomNavItems.forEach { screen ->
-                                    val selected =
-                                            currentDestination?.hierarchy?.any {
-                                                it.route == screen.route
-                                            } == true
+                            if (showBottomBar) {
+                                NavigationBar(
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        tonalElevation = androidx.compose.ui.unit.Dp(0f)
+                                ) {
+                                    Screen.bottomNavItems.forEach { screen ->
+                                        val selected =
+                                                currentDestination?.hierarchy?.any {
+                                                    it.route == screen.route
+                                                } == true
 
-                                    NavigationBarItem(
-                                            icon = {
-                                                Icon(
-                                                        imageVector =
-                                                                if (selected) screen.selectedIcon
-                                                                else screen.unselectedIcon,
-                                                        contentDescription = screen.title
-                                                )
-                                            },
-                                            label = { Text(screen.title) },
-                                            selected = selected,
-                                            onClick = {
-                                                navController.navigate(screen.route) {
-                                                    popUpTo(
-                                                            navController.graph
-                                                                    .findStartDestination()
-                                                                    .id
-                                                    ) { saveState = true }
-                                                    launchSingleTop = true
-                                                    restoreState = true
-                                                }
-                                            },
-                                            colors =
-                                                    NavigationBarItemDefaults.colors(
-                                                            selectedIconColor =
-                                                                    MaterialTheme.colorScheme
-                                                                            .primary,
-                                                            selectedTextColor =
-                                                                    MaterialTheme.colorScheme
-                                                                            .primary,
-                                                            indicatorColor =
-                                                                    MaterialTheme.colorScheme
-                                                                            .primaryContainer
+                                        NavigationBarItem(
+                                                icon = {
+                                                    Icon(
+                                                            imageVector =
+                                                                    if (selected)
+                                                                            screen.selectedIcon
+                                                                    else screen.unselectedIcon,
+                                                            contentDescription = screen.title
                                                     )
-                                    )
+                                                },
+                                                label = { Text(screen.title) },
+                                                selected = selected,
+                                                onClick = {
+                                                    navController.navigate(screen.route) {
+                                                        popUpTo(
+                                                                navController.graph
+                                                                        .findStartDestination()
+                                                                        .id
+                                                        ) { saveState = true }
+                                                        launchSingleTop = true
+                                                        restoreState = true
+                                                    }
+                                                },
+                                                colors =
+                                                        NavigationBarItemDefaults.colors(
+                                                                selectedIconColor =
+                                                                        MaterialTheme.colorScheme
+                                                                                .primary,
+                                                                selectedTextColor =
+                                                                        MaterialTheme.colorScheme
+                                                                                .primary,
+                                                                indicatorColor =
+                                                                        MaterialTheme.colorScheme
+                                                                                .primaryContainer
+                                                        )
+                                        )
+                                    }
                                 }
                             }
                         }
                 ) { innerPadding ->
-                    NavGraph(navController = navController, paddingValues = innerPadding)
+                    NavGraph(
+                            navController = navController,
+                            paddingValues = innerPadding,
+                            startDestination = startDestination
+                    )
                 }
             }
         }

@@ -46,7 +46,10 @@ import com.safeguard.presentation.common.simpleVerticalScrollbar
 import com.safeguard.presentation.theme.Error
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+        viewModel: SettingsViewModel = hiltViewModel(),
+        onNavigateToOnboarding: () -> Unit
+) {
         val uiState by viewModel.uiState.collectAsState()
         var showClearLogsDialog by remember { mutableStateOf(false) }
         var showClearWhitelistDialog by remember { mutableStateOf(false) }
@@ -133,6 +136,18 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                                 subtitle = "Require PIN to access settings",
                                 isChecked = uiState.isPinEnabled,
                                 onCheckedChange = { viewModel.togglePinEnabled() }
+                        )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Permissions Section
+                SettingsSection(title = "Permissions") {
+                        SettingsClickableItem(
+                                icon = Icons.Default.Shield,
+                                title = "Setup Permissions",
+                                subtitle = "Grant necessary permissions for full protection",
+                                onClick = { onNavigateToOnboarding() }
                         )
                 }
 

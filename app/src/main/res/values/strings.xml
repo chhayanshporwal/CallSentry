@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SafeGuard</string>
+    <string name="app_name">Call Sentry</string>
+    <string name="title_activity_main">Call Sentry</string>
     
     <!-- Dashboard -->
     <string name="protection_enabled">Protection Enabled</string>

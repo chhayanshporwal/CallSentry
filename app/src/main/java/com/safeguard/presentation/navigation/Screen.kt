@@ -17,39 +17,47 @@ sealed class Screen(
         val selectedIcon: ImageVector,
         val unselectedIcon: ImageVector
 ) {
-    object Dashboard :
-            Screen(
-                    route = "dashboard",
-                    title = "Dashboard",
-                    selectedIcon = Icons.Filled.Home,
-                    unselectedIcon = Icons.Outlined.Home
-            )
+        object Dashboard :
+                Screen(
+                        route = "dashboard",
+                        title = "Dashboard",
+                        selectedIcon = Icons.Filled.Home,
+                        unselectedIcon = Icons.Outlined.Home
+                )
 
-    object Whitelist :
-            Screen(
-                    route = "whitelist",
-                    title = "Whitelist",
-                    selectedIcon = Icons.Filled.People,
-                    unselectedIcon = Icons.Outlined.People
-            )
+        object Whitelist :
+                Screen(
+                        route = "whitelist",
+                        title = "Whitelist",
+                        selectedIcon = Icons.Filled.People,
+                        unselectedIcon = Icons.Outlined.People
+                )
 
-    object BlockedLog :
-            Screen(
-                    route = "blocked",
-                    title = "Blocked",
-                    selectedIcon = Icons.Filled.Block,
-                    unselectedIcon = Icons.Outlined.Block
-            )
+        object BlockedLog :
+                Screen(
+                        route = "blocked",
+                        title = "Blocked",
+                        selectedIcon = Icons.Filled.Block,
+                        unselectedIcon = Icons.Outlined.Block
+                )
 
-    object Settings :
-            Screen(
-                    route = "settings",
-                    title = "Settings",
-                    selectedIcon = Icons.Filled.Settings,
-                    unselectedIcon = Icons.Outlined.Settings
-            )
+        object Settings :
+                Screen(
+                        route = "settings",
+                        title = "Settings",
+                        selectedIcon = Icons.Filled.Settings,
+                        unselectedIcon = Icons.Outlined.Settings
+                )
 
-    companion object {
-        val bottomNavItems = listOf(Dashboard, Whitelist, BlockedLog, Settings)
-    }
+        object Onboarding :
+                Screen(
+                        route = "onboarding",
+                        title = "Onboarding",
+                        selectedIcon = Icons.Filled.Info,
+                        unselectedIcon = Icons.Outlined.Info
+                )
+
+        companion object {
+                val bottomNavItems = listOf(Dashboard, Whitelist, BlockedLog, Settings)
+        }
 }
