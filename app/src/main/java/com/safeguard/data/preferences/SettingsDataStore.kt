@@ -20,6 +20,7 @@ class SettingsDataStore @Inject constructor(private val context: Context) {
         val BLOCKING_ENABLED = booleanPreferencesKey("blocking_enabled")
         val CALL_BLOCKING_ENABLED = booleanPreferencesKey("call_blocking_enabled")
         val SMS_BLOCKING_ENABLED = booleanPreferencesKey("sms_blocking_enabled")
+        val EMERGENCY_BREAKTHROUGH_ENABLED = booleanPreferencesKey("emergency_breakthrough_enabled")
         val PIN_ENABLED = booleanPreferencesKey("pin_enabled")
         val PIN_HASH = stringPreferencesKey("pin_hash")
         val FIRST_LAUNCH = booleanPreferencesKey("first_launch")
@@ -33,6 +34,11 @@ class SettingsDataStore @Inject constructor(private val context: Context) {
 
     val isSmsBlockingEnabled: Flow<Boolean> =
             context.dataStore.data.map { prefs -> prefs[Keys.SMS_BLOCKING_ENABLED] ?: true }
+
+    val isEmergencyBreakthroughEnabled: Flow<Boolean> =
+            context.dataStore.data.map { prefs ->
+                prefs[Keys.EMERGENCY_BREAKTHROUGH_ENABLED] ?: false
+            }
 
     val isPinEnabled: Flow<Boolean> =
             context.dataStore.data.map { prefs -> prefs[Keys.PIN_ENABLED] ?: false }
@@ -50,6 +56,10 @@ class SettingsDataStore @Inject constructor(private val context: Context) {
 
     suspend fun setSmsBlockingEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs -> prefs[Keys.SMS_BLOCKING_ENABLED] = enabled }
+    }
+
+    suspend fun setEmergencyBreakthroughEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.EMERGENCY_BREAKTHROUGH_ENABLED] = enabled }
     }
 
     suspend fun setPinEnabled(enabled: Boolean) {

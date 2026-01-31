@@ -107,6 +107,20 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                                 onCheckedChange = { viewModel.toggleSmsBlocking() },
                                 enabled = uiState.isBlockingEnabled
                         )
+
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                        SettingsSwitchItem(
+                                icon =
+                                        Icons.Default
+                                                .Shield, // Re-using Shield or maybe another icon
+                                // like NotificationsActive
+                                title = "Emergency Breakthrough",
+                                subtitle = "Allow call if number calls 3+ times in 5 mins",
+                                isChecked = uiState.isEmergencyBreakthroughEnabled,
+                                onCheckedChange = { viewModel.toggleEmergencyBreakthrough() },
+                                enabled = uiState.isBlockingEnabled
+                        )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

@@ -35,12 +35,14 @@ constructor(
                             settingsDataStore.isBlockingEnabled,
                             settingsDataStore.isCallBlockingEnabled,
                             settingsDataStore.isSmsBlockingEnabled,
+                            settingsDataStore.isEmergencyBreakthroughEnabled,
                             settingsDataStore.isPinEnabled
-                    ) { blocking, calls, sms, pin ->
+                    ) { blocking, calls, sms, emergency, pin ->
                 SettingsUiState(
                         isBlockingEnabled = blocking,
                         isCallBlockingEnabled = calls,
                         isSmsBlockingEnabled = sms,
+                        isEmergencyBreakthroughEnabled = emergency,
                         isPinEnabled = pin,
                         isLoading = false
                 )
@@ -64,6 +66,14 @@ constructor(
     fun toggleSmsBlocking() {
         viewModelScope.launch {
             settingsDataStore.setSmsBlockingEnabled(!_uiState.value.isSmsBlockingEnabled)
+        }
+    }
+
+    fun toggleEmergencyBreakthrough() {
+        viewModelScope.launch {
+            settingsDataStore.setEmergencyBreakthroughEnabled(
+                    !_uiState.value.isEmergencyBreakthroughEnabled
+            )
         }
     }
 

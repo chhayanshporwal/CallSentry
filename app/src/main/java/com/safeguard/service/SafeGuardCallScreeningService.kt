@@ -22,6 +22,7 @@ class SafeGuardCallScreeningService : CallScreeningService() {
     @Inject lateinit var whitelistRepository: WhitelistRepository
     @Inject lateinit var blockedLogRepository: BlockedLogRepository
     @Inject lateinit var settingsDataStore: SettingsDataStore
+    @Inject lateinit var emergencyCallManager: com.safeguard.domain.manager.EmergencyCallManager
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -49,17 +50,38 @@ class SafeGuardCallScreeningService : CallScreeningService() {
             // Check whitelist
             val isWhitelisted = whitelistRepository.isCallAllowed(phoneNumber)
 
-            val response =
-                    if (isWhitelisted) {
-                        // Allow whitelisted numbers
-                        createAllowResponse()
+            // Check Emergency Breakthrough
+            val isEmergencybreakthroughEnabled =
+                    settingsDataStore.isEmergencyBreakthroughEnabled.first()
+            val isEmergencyAllowed =
+                    if (isEmergencybreakthroughEnabled && !isWhitelisted) {
+                        emergencyCallManager.shouldAllow(phoneNumber)
                     } else {
-                        // Block non-whitelisted numbers and log
-                        logBlockedCall(phoneNumber)
-                        createBlockResponse()
+                        false
                     }
 
-            respondToCall(callDetails, response)
+            if (isWhitelisted) {
+                // Allow whitelisted numbers
+                // Clear attempts on successful connect if needed, but for now just allow
+                emergencyCallManager.clearAttempts(phoneNumber)
+                respondToCall(callDetails, createAllowResponse())
+            } else if (isEmergencyAllowed) {
+                // Allow due to repeated attempts (Emergency Breakthrough)
+                // We might want to log this as a special event or just allow it
+                // For now, allow it and clear attempts so the cycle resets
+                emergencyCallManager.clearAttempts(phoneNumber)
+                respondToCall(callDetails, createAllowResponse())
+            } else {
+                // Block non-whitelisted numbers and log
+                logBlockedCall(phoneNumber)
+
+                // Record attempt for emergency breakthrough
+                if (isEmergencybreakthroughEnabled) {
+                    emergencyCallManager.recordAttempt(phoneNumber)
+                }
+
+                respondToCall(callDetails, createBlockResponse())
+            }
         }
     }
 
