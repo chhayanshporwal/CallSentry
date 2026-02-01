@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "755982545075",
+    "project_id": "call-sentry-f3b01",
+    "storage_bucket": "call-sentry-f3b01.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:755982545075:android:b5d84e4966a543b4a740c6",
+        "android_client_info": {
+          "package_name": "com.safeguard"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "755982545075-m74927sm9h4nqgas1iug3lcesjvpfmbp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.safeguard",
+            "certificate_hash": "c246bbb94ad8c6e1aa884196edd1c74d6185ff36"
+          }
+        },
+        {
+          "client_id": "755982545075-a0v0770204jqeeo19qtu9bi1i7cpv678.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD24rZL4_lLu7zrR6IvElw5EhwyHa1PS3E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "755982545075-a0v0770204jqeeo19qtu9bi1i7cpv678.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

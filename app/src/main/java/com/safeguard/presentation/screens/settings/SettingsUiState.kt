@@ -7,5 +7,6 @@ data class SettingsUiState(
         val isEmergencyBreakthroughEnabled: Boolean = false,
         val isPinEnabled: Boolean = false,
         val showPinDialog: Boolean = false,
+        val themeMode: Int = 0, // 0: System, 1: Light, 2: Dark
         val isLoading: Boolean = true
 )

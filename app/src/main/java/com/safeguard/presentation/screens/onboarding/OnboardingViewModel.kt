@@ -25,9 +25,32 @@ constructor(
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
     init {
-        // Initial check to see if we can skip steps
-        // For example, if role is already held, jump to permissions
-        checkRoleStatus()
+        // Skip to the first incomplete step
+        skipCompletedSteps()
+    }
+
+    private fun skipCompletedSteps() {
+        viewModelScope.launch {
+            // Check which steps are already completed
+            val hasRole = permissionManager.hasCallScreeningRole()
+            val hasPermissions = permissionManager.hasRuntimePermissions()
+            val hasAuth = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
+
+            // Find the first incomplete step
+            val startStep =
+                    when {
+                        !hasRole -> OnboardingStep.DEFAULT_ROLE
+                        !hasPermissions -> OnboardingStep.PERMISSIONS
+                        !hasAuth -> OnboardingStep.LOGIN
+                        else -> {
+                            // All steps complete, mark as done
+                            completeOnboarding()
+                            return@launch
+                        }
+                    }
+
+            _uiState.value = _uiState.value.copy(currentStep = startStep)
+        }
     }
 
     fun nextStep() {
@@ -58,10 +81,15 @@ constructor(
     }
 
     fun checkRoleStatus() {
-        if (permissionManager.hasCallScreeningRole()) {
-            // If we are currently on the role step, move forward automatically
-            if (_uiState.value.currentStep == OnboardingStep.DEFAULT_ROLE) {
-                nextStep()
+        viewModelScope.launch {
+            val hasRole = permissionManager.hasCallScreeningRole()
+            settingsDataStore.setRoleGranted(hasRole)
+
+            if (hasRole) {
+                // If we are currently on the role step, move forward automatically
+                if (_uiState.value.currentStep == OnboardingStep.DEFAULT_ROLE) {
+                    nextStep()
+                }
             }
         }
     }
@@ -75,9 +103,14 @@ constructor(
     }
 
     fun checkPermissionStatus() {
-        if (permissionManager.hasRuntimePermissions()) {
-            if (_uiState.value.currentStep == OnboardingStep.PERMISSIONS) {
-                nextStep()
+        viewModelScope.launch {
+            val hasPermissions = permissionManager.hasRuntimePermissions()
+            settingsDataStore.setPermissionsGranted(hasPermissions)
+
+            if (hasPermissions) {
+                if (_uiState.value.currentStep == OnboardingStep.PERMISSIONS) {
+                    nextStep()
+                }
             }
         }
     }

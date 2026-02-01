@@ -1,5 +1,6 @@
 package com.safeguard.presentation.screens.dashboard
 
+// ...
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -21,11 +22,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -45,7 +50,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.safeguard.presentation.common.components.DashboardTopBar
 import com.safeguard.presentation.common.simpleVerticalScrollbar
 import com.safeguard.presentation.theme.BlockedCallColor
 import com.safeguard.presentation.theme.BlockedSmsColor
@@ -55,12 +59,37 @@ import com.safeguard.presentation.theme.Secondary
 import com.safeguard.presentation.theme.StatusDisabled
 import com.safeguard.presentation.theme.StatusEnabled
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
+fun DashboardScreen(
+        viewModel: DashboardViewModel = hiltViewModel(),
+        onNavigateToRecentActivity: () -> Unit,
+        onNavigateToProfile: () -> Unit
+) {
         val uiState by viewModel.uiState.collectAsState()
 
-        Scaffold(topBar = { DashboardTopBar() }, contentWindowInsets = WindowInsets(0.dp)) {
-                paddingValues ->
+        Scaffold(
+                topBar = {
+                        // We need to customize DashboardTopBar to accept actions or create a new
+                        // one here
+                        // Since DashboardTopBar is a separate component, let's assume valid
+                        // composable or replace it
+                        androidx.compose.material3.TopAppBar(
+                                title = { Text("Call Sentry") },
+                                actions = {
+                                        androidx.compose.material3.IconButton(
+                                                onClick = onNavigateToProfile
+                                        ) {
+                                                Icon(
+                                                        imageVector = Icons.Default.AccountCircle,
+                                                        contentDescription = "Profile"
+                                                )
+                                        }
+                                }
+                        )
+                },
+                contentWindowInsets = WindowInsets(0.dp)
+        ) { paddingValues ->
                 val scrollState = rememberScrollState()
                 Column(
                         modifier =
@@ -68,33 +97,15 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                                         .background(MaterialTheme.colorScheme.background)
                                         .padding(paddingValues)
                                         .simpleVerticalScrollbar(scrollState)
-                                        .verticalScroll(scrollState)
+                        .verticalScroll(scrollState)
                                         .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(26.dp)  // Golden ratio: 16 * 1.618
                 ) {
-                        // Header
-                        Text(
-                                text = "SafeGuard",
-                                style = MaterialTheme.typography.headlineLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                        )
-
-                        Text(
-                                text = "Your protection shield",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
                         // Main Protection Card
                         ProtectionCard(
                                 isEnabled = uiState.isBlockingEnabled,
                                 onToggle = { viewModel.toggleBlocking() }
                         )
-
-                        Spacer(modifier = Modifier.height(24.dp))
 
                         // Stats Row
                         Row(
@@ -132,8 +143,6 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                                 iconColor = Secondary
                         )
 
-                        Spacer(modifier = Modifier.height(24.dp))
-
                         // Quick Settings
                         Text(
                                 text = "Quick Settings",
@@ -146,42 +155,86 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 
                         QuickSettingItem(
                                 title = "Block Calls",
-                                subtitle = "Block incoming calls from unknown numbers",
-                                isEnabled = uiState.isCallBlockingEnabled,
-                                onToggle = { viewModel.toggleCallBlocking() }
+                                subtitle = if (uiState.isBlockingEnabled) {
+                                    "Block incoming calls from unknown numbers"
+                                } else {
+                                    "Enable protection to use this feature"
+                                },
+                                isEnabled = uiState.isCallBlockingEnabled && uiState.isBlockingEnabled,
+                                onToggle = {
+                                    if (uiState.isBlockingEnabled) {
+                                        viewModel.toggleCallBlocking()
+                                    }
+                                }
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
 
                         QuickSettingItem(
                                 title = "Block SMS",
-                                subtitle = "Block incoming SMS from unknown numbers",
-                                isEnabled = uiState.isSmsBlockingEnabled,
-                                onToggle = { viewModel.toggleSmsBlocking() }
+                                subtitle = if (uiState.isBlockingEnabled) {
+                                    "Block incoming SMS from unknown numbers"
+                                } else {
+                                    "Enable protection to use this feature"
+                                },
+                                isEnabled = uiState.isSmsBlockingEnabled && uiState.isBlockingEnabled,
+                                onToggle = {
+                                    if (uiState.isBlockingEnabled) {
+                                        viewModel.toggleSmsBlocking()
+                                    }
+                                }
                         )
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Recent Blocked Logs
-                        if (uiState.recentBlockedLogs.isNotEmpty()) {
-                                Text(
-                                        text = "Recent Activity",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                uiState.recentBlockedLogs.forEach { log ->
-                                        com.safeguard.presentation.common.components.BlockedLogCard(
-                                                log = log,
-                                                onAddToWhitelist = { viewModel.addToWhitelist(log) }
+                        // Recent Activity Link
+                        Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                onClick = { onNavigateToRecentActivity() },
+                                colors =
+                                        CardDefaults.cardColors(
+                                                containerColor =
+                                                        MaterialTheme.colorScheme.surfaceVariant
+                                                                .copy(alpha = 0.5f)
+                                        )
+                        ) {
+                                Row(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                        Icon(
+                                                imageVector = Icons.Default.History,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                        text = "View Activity Log",
+                                                        style =
+                                                                MaterialTheme.typography
+                                                                        .titleMedium,
+                                                        fontWeight = FontWeight.Medium
+                                                )
+                                                Text(
+                                                        text =
+                                                                "See all blocked calls and system events",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color =
+                                                                MaterialTheme.colorScheme
+                                                                        .onSurfaceVariant
+                                                )
+                                        }
+                                        Icon(
+                                                imageVector = Icons.Default.ChevronRight,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                 }
-
-                                Spacer(modifier = Modifier.height(24.dp))
                         }
+
+                        Spacer(modifier = Modifier.height(24.dp))
                 }
         }
 }

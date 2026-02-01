@@ -20,6 +20,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
         return Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DATABASE_NAME)
+                .fallbackToDestructiveMigration()
                 .build()
     }
 
@@ -33,5 +34,11 @@ object DatabaseModule {
     @Singleton
     fun provideBlockedLogDao(database: AppDatabase): BlockedLogDao {
         return database.blockedLogDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideActivityLogDao(database: AppDatabase): com.safeguard.data.local.dao.ActivityLogDao {
+        return database.activityLogDao()
     }
 }

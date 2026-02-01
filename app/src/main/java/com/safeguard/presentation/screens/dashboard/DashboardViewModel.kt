@@ -42,24 +42,26 @@ constructor(
                             whitelistRepository.getAllContacts(),
                             blockedLogRepository.getAllLogs()
                     ) { values ->
-                DashboardUiState(
-                        isBlockingEnabled = values[0] as Boolean,
-                        isCallBlockingEnabled = values[1] as Boolean,
-                        isSmsBlockingEnabled = values[2] as Boolean,
-                        blockedCallsToday = values[3] as Int,
-                        blockedSmsToday = values[4] as Int,
-                        whitelistCount = values[5] as Int,
-                        recentWhitelist =
-                                (values[6] as List<*>)
-                                        .take(5)
-                                        .filterIsInstance<
-                                                com.safeguard.domain.model.WhitelistContact>(),
-                        recentBlockedLogs =
-                                (values[7] as List<*>)
-                                        .take(5)
-                                        .filterIsInstance<com.safeguard.domain.model.BlockedLog>(),
-                        isLoading = false
-                )
+                try {
+                    DashboardUiState(
+                            isBlockingEnabled = (values[0] as? Boolean) ?: true,
+                            isCallBlockingEnabled = (values[1] as? Boolean) ?: true,
+                            isSmsBlockingEnabled = (values[2] as? Boolean) ?: true,
+                            blockedCallsToday = (values[3] as? Int) ?: 0,
+                            blockedSmsToday = (values[4] as? Int) ?: 0,
+                            whitelistCount = (values[5] as? Int) ?: 0,
+                            recentWhitelist =
+                                    (values[6] as? List<*>)
+                                            ?.take(5)
+                                            ?.filterIsInstance<
+                                                    com.safeguard.domain.model.WhitelistContact>()
+                                            ?: emptyList(),
+                            isLoading = false
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("DashboardViewModel", "Error loading dashboard data", e)
+                    DashboardUiState(isLoading = false)
+                }
             }
                     .collect { state -> _uiState.value = state }
         }

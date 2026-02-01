@@ -2,6 +2,8 @@ package com.safeguard.presentation.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.safeguard.data.preferences.SettingsDataStore
 import com.safeguard.domain.repository.BlockedLogRepository
 import com.safeguard.domain.repository.WhitelistRepository
@@ -31,21 +33,25 @@ constructor(
 
     private fun loadSettings() {
         viewModelScope.launch {
-            combine(
+            val settingsFlow =
+                    combine(
                             settingsDataStore.isBlockingEnabled,
                             settingsDataStore.isCallBlockingEnabled,
                             settingsDataStore.isSmsBlockingEnabled,
                             settingsDataStore.isEmergencyBreakthroughEnabled,
                             settingsDataStore.isPinEnabled
                     ) { blocking, calls, sms, emergency, pin ->
-                SettingsUiState(
-                        isBlockingEnabled = blocking,
-                        isCallBlockingEnabled = calls,
-                        isSmsBlockingEnabled = sms,
-                        isEmergencyBreakthroughEnabled = emergency,
-                        isPinEnabled = pin,
-                        isLoading = false
-                )
+                        SettingsUiState(
+                                isBlockingEnabled = blocking,
+                                isCallBlockingEnabled = calls,
+                                isSmsBlockingEnabled = sms,
+                                isEmergencyBreakthroughEnabled = emergency,
+                                isPinEnabled = pin
+                        )
+                    }
+
+            combine(settingsFlow, settingsDataStore.themeMode) { uiState, theme ->
+                uiState.copy(themeMode = theme, isLoading = false)
             }
                     .collect { state -> _uiState.value = state }
         }
@@ -87,5 +93,45 @@ constructor(
 
     fun clearWhitelist() {
         viewModelScope.launch { whitelistRepository.clearAll() }
+    }
+
+    fun setThemeMode(mode: Int) {
+        viewModelScope.launch { settingsDataStore.setThemeMode(mode) }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            try {
+                FirebaseAuth.getInstance().signOut()
+                // Clear local data
+                clearBlockedLogs()
+                clearWhitelist()
+            } catch (e: Exception) {
+                android.util.Log.e("SettingsViewModel", "Logout error", e)
+            }
+        }
+    }
+
+    fun deleteAccount() {
+        viewModelScope.launch {
+            try {
+                val user = FirebaseAuth.getInstance().currentUser
+                val userId = user?.uid
+
+                // Delete from Firestore
+                if (userId != null) {
+                    FirebaseFirestore.getInstance().collection("users").document(userId).delete()
+                }
+
+                // Delete Firebase auth account
+                user?.delete()
+
+                // Clear local data
+                clearBlockedLogs()
+                clearWhitelist()
+            } catch (e: Exception) {
+                android.util.Log.e("SettingsViewModel", "Delete account error", e)
+            }
+        }
     }
 }

@@ -7,6 +7,7 @@ import com.safeguard.domain.model.BlockType
 import com.safeguard.domain.model.BlockedLog
 import com.safeguard.domain.repository.BlockedLogRepository
 import com.safeguard.domain.repository.WhitelistRepository
+import com.safeguard.util.PhoneNumberNormalizer
 import com.safeguard.util.PhoneNumberUtils
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -27,7 +28,8 @@ class SafeGuardCallScreeningService : CallScreeningService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onScreenCall(callDetails: Call.Details) {
-        val phoneNumber = callDetails.handle?.schemeSpecificPart ?: ""
+        val rawPhoneNumber = callDetails.handle?.schemeSpecificPart ?: ""
+        val phoneNumber = PhoneNumberNormalizer.normalize(rawPhoneNumber)
 
         serviceScope.launch {
             // Check if blocking is enabled

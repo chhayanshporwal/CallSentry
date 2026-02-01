@@ -23,7 +23,14 @@ fun NavGraph(
             startDestination = startDestination,
             modifier = Modifier.padding(paddingValues)
     ) {
-        composable(route = Screen.Dashboard.route) { DashboardScreen() }
+        composable(route = Screen.Dashboard.route) {
+            DashboardScreen(
+                    onNavigateToRecentActivity = {
+                        navController.navigate(Screen.RecentActivity.route)
+                    },
+                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
+            )
+        }
 
         composable(route = Screen.Whitelist.route) { WhitelistScreen() }
 
@@ -31,7 +38,12 @@ fun NavGraph(
 
         composable(route = Screen.Settings.route) {
             SettingsScreen(
-                    onNavigateToOnboarding = { navController.navigate(Screen.Onboarding.route) }
+                    onNavigateToOnboarding = { navController.navigate(Screen.Onboarding.route) },
+                    onNavigateToLogin = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
             )
         }
 
@@ -39,6 +51,20 @@ fun NavGraph(
             com.safeguard.presentation.screens.onboarding.OnboardingScreen(
                     navController = navController
             )
+        }
+
+        composable(Screen.RecentActivity.route) {
+            com.safeguard.presentation.screens.recent.RecentActivityScreen(
+                    onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(route = Screen.Profile.route) {
+            com.safeguard.presentation.screens.profile.ProfileScreen(navController = navController)
+        }
+
+        composable(route = Screen.Login.route) {
+            com.safeguard.presentation.screens.auth.LoginScreen(navController = navController)
         }
     }
 }

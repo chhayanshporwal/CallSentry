@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.safeguard.domain.model.WhitelistContact
 import com.safeguard.domain.repository.WhitelistRepository
+import com.safeguard.util.PhoneNumberNormalizer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -66,15 +67,18 @@ constructor(
 
     fun addContact(phoneNumber: String, name: String?) {
         viewModelScope.launch {
+            // Normalize phone number first
+            val normalizedNumber = PhoneNumberNormalizer.normalize(phoneNumber)
+            
             val resolvedName =
                     if (name.isNullOrBlank()) {
-                        contactUtils.getContactName(phoneNumber)
+                        contactUtils.getContactName(normalizedNumber)
                     } else {
                         name
                     }
 
             whitelistRepository.addContact(
-                    WhitelistContact(phoneNumber = phoneNumber, displayName = resolvedName)
+                    WhitelistContact(phoneNumber = normalizedNumber, displayName = resolvedName)
             )
             hideAddDialog()
         }

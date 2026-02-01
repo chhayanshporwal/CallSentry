@@ -5,17 +5,20 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 @Singleton
-class SettingsDataStore @Inject constructor(private val context: Context) {
+class SettingsDataStore @Inject constructor(@ApplicationContext private val context: Context) {
     private object Keys {
         val BLOCKING_ENABLED = booleanPreferencesKey("blocking_enabled")
         val CALL_BLOCKING_ENABLED = booleanPreferencesKey("call_blocking_enabled")
@@ -24,6 +27,12 @@ class SettingsDataStore @Inject constructor(private val context: Context) {
         val PIN_ENABLED = booleanPreferencesKey("pin_enabled")
         val PIN_HASH = stringPreferencesKey("pin_hash")
         val FIRST_LAUNCH = booleanPreferencesKey("first_launch")
+        val THEME_MODE = androidx.datastore.preferences.core.intPreferencesKey("theme_mode")
+
+        // Onboarding step tracking
+        val ROLE_GRANTED = booleanPreferencesKey("role_granted")
+        val PERMISSIONS_GRANTED = booleanPreferencesKey("permissions_granted")
+        val AUTH_COMPLETED = booleanPreferencesKey("auth_completed")
     }
 
     val isBlockingEnabled: Flow<Boolean> =
@@ -45,6 +54,18 @@ class SettingsDataStore @Inject constructor(private val context: Context) {
 
     val isFirstLaunch: Flow<Boolean> =
             context.dataStore.data.map { prefs -> prefs[Keys.FIRST_LAUNCH] ?: true }
+
+    val themeMode: Flow<Int> = context.dataStore.data.map { prefs -> prefs[Keys.THEME_MODE] ?: 0 }
+
+    // Onboarding step flows
+    val isRoleGranted: Flow<Boolean> =
+            context.dataStore.data.map { prefs -> prefs[Keys.ROLE_GRANTED] ?: false }
+
+    val arePermissionsGranted: Flow<Boolean> =
+            context.dataStore.data.map { prefs -> prefs[Keys.PERMISSIONS_GRANTED] ?: false }
+
+    val isAuthCompleted: Flow<Boolean> =
+            context.dataStore.data.map { prefs -> prefs[Keys.AUTH_COMPLETED] ?: false }
 
     suspend fun setBlockingEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs -> prefs[Keys.BLOCKING_ENABLED] = enabled }
@@ -71,12 +92,27 @@ class SettingsDataStore @Inject constructor(private val context: Context) {
     }
 
     suspend fun getPinHash(): String? {
-        var hash: String? = null
-        context.dataStore.edit { prefs -> hash = prefs[Keys.PIN_HASH] }
-        return hash
+        return context.dataStore.data.map { prefs -> prefs[Keys.PIN_HASH] }.firstOrNull()
     }
 
     suspend fun setFirstLaunchComplete() {
         context.dataStore.edit { prefs -> prefs[Keys.FIRST_LAUNCH] = false }
+    }
+
+    suspend fun setThemeMode(mode: Int) {
+        context.dataStore.edit { prefs -> prefs[Keys.THEME_MODE] = mode }
+    }
+
+    // Onboarding step setters
+    suspend fun setRoleGranted(granted: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.ROLE_GRANTED] = granted }
+    }
+
+    suspend fun setPermissionsGranted(granted: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.PERMISSIONS_GRANTED] = granted }
+    }
+
+    suspend fun setAuthCompleted(completed: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.AUTH_COMPLETED] = completed }
     }
 }

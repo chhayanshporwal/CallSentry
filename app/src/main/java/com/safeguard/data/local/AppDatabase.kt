@@ -8,14 +8,19 @@ import com.safeguard.data.local.entity.BlockedLogEntity
 import com.safeguard.data.local.entity.WhitelistEntity
 
 @Database(
-        entities = [WhitelistEntity::class, BlockedLogEntity::class],
-        version = 1,
+        entities =
+                [
+                        WhitelistEntity::class,
+                        BlockedLogEntity::class,
+                        com.safeguard.data.local.entity.ActivityLogEntity::class],
+        version = 2,
         exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun whitelistDao(): WhitelistDao
     abstract fun blockedLogDao(): BlockedLogDao
+    abstract fun activityLogDao(): com.safeguard.data.local.dao.ActivityLogDao
 
     companion object {
         const val DATABASE_NAME = "safeguard_db"

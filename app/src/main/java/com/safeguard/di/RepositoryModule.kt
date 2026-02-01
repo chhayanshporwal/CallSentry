@@ -25,6 +25,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindBlockedLogRepository(impl: BlockedLogRepositoryImpl): BlockedLogRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindActivityLogRepository(
+            impl: com.safeguard.data.repository.ActivityLogRepositoryImpl
+    ): com.safeguard.domain.repository.ActivityLogRepository
 }
 
 @Module

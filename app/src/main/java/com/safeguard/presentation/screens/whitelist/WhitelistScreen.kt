@@ -79,6 +79,22 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
         val scope = rememberCoroutineScope()
         val snackbarHostState = remember { SnackbarHostState() }
 
+        // Permission Launcher
+        val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                 // We can't easily re-trigger the pick intent here because we need the launcher
+                 // from the scope where it was called. 
+                 // Simple solution: User clicks "Import" again. 
+                 // Better solution: Trigger the contact picker directly here? 
+                 // Actually, best flow: Check permission in "onImportContact". If granted, launch picker. If not, launch permission.
+                 // If permission callback returns true, launch picker *then*.
+                 // But we can't capture the `contactLauncher` easily if it's defined after.
+                 // Let's define contactLauncher first.
+            }
+        }
+
         // Contact Picker
         val contactLauncher =
                 rememberLauncherForActivityResult(
@@ -88,68 +104,73 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
                                 val contactUri = result.data?.data
                                 if (contactUri != null) {
                                         try {
-                                                val projection =
-                                                        arrayOf(
-                                                                ContactsContract.CommonDataKinds
-                                                                        .Phone.DISPLAY_NAME,
-                                                                ContactsContract.CommonDataKinds
-                                                                        .Phone.NUMBER
-                                                        )
+                                                // First get the contact name and ID
+                                                val nameProjection = arrayOf(
+                                                        ContactsContract.Contacts._ID,
+                                                        ContactsContract.Contacts.DISPLAY_NAME
+                                                )
+                                                var contactId: String? = null
+                                                var contactName = "Unknown"
+                                                
                                                 context.contentResolver.query(
-                                                                contactUri,
-                                                                projection,
-                                                                null,
-                                                                null,
-                                                                null
-                                                        )
-                                                        ?.use { cursor ->
-                                                                if (cursor.moveToFirst()) {
-                                                                        val nameIndex =
-                                                                                cursor.getColumnIndex(
-                                                                                        ContactsContract
-                                                                                                .CommonDataKinds
-                                                                                                .Phone
-                                                                                                .DISPLAY_NAME
-                                                                                )
-                                                                        val numberIndex =
-                                                                                cursor.getColumnIndex(
-                                                                                        ContactsContract
-                                                                                                .CommonDataKinds
-                                                                                                .Phone
-                                                                                                .NUMBER
-                                                                                )
-                                                                        val name =
-                                                                                if (nameIndex >= 0)
-                                                                                        cursor.getString(
-                                                                                                nameIndex
-                                                                                        )
-                                                                                else "Unknown"
-                                                                        val number =
-                                                                                if (numberIndex >= 0
-                                                                                )
-                                                                                        cursor.getString(
-                                                                                                numberIndex
-                                                                                        )
-                                                                                else ""
+                                                        contactUri,
+                                                        nameProjection,
+                                                        null,
+                                                        null,
+                                                        null
+                                                )?.use { cursor ->
+                                                        if (cursor.moveToFirst()) {
+                                                                val idIndex = cursor.getColumnIndex(ContactsContract.Contacts._ID)
+                                                                val nameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
+                                                                contactId = if (idIndex >= 0) cursor.getString(idIndex) else null
+                                                                contactName = if (nameIndex >= 0) cursor.getString(nameIndex) else "Unknown"
+                                                        }
+                                                }
 
+                                                // Now query all phone numbers for this contact
+                                                if (contactId != null) {
+                                                        val phoneProjection = arrayOf(
+                                                                ContactsContract.CommonDataKinds.Phone.NUMBER
+                                                        )
+                                                        
+                                                        val numbers = mutableSetOf<String>() // Use Set to avoid duplicates
+                                                        context.contentResolver.query(
+                                                                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                                                                phoneProjection,
+                                                                "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                                                                arrayOf(contactId),
+                                                                null
+                                                        )?.use { cursor ->
+                                                                while (cursor.moveToNext()) {
+                                                                        val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                                                                        val number = if (numberIndex >= 0) cursor.getString(numberIndex) else ""
+                                                                        
                                                                         if (number.isNotBlank()) {
-                                                                                viewModel
-                                                                                        .addContact(
-                                                                                                number,
-                                                                                                name
-                                                                                        )
-                                                                                scope.launch {
-                                                                                        snackbarHostState
-                                                                                                .showSnackbar(
-                                                                                                        "Contact added",
-                                                                                                        duration =
-                                                                                                                SnackbarDuration
-                                                                                                                        .Short
-                                                                                                )
-                                                                                }
+                                                                                numbers.add(number)
                                                                         }
                                                                 }
                                                         }
+
+                                                        if (numbers.isEmpty()) {
+                                                                scope.launch {
+                                                                        snackbarHostState.showSnackbar(
+                                                                                "No phone numbers found for this contact",
+                                                                                duration = SnackbarDuration.Short
+                                                                        )
+                                                                }
+                                                        } else {
+                                                                // Automatically add ALL numbers
+                                                                numbers.forEach { number ->
+                                                                    viewModel.addContact(number, contactName)
+                                                                }
+                                                                scope.launch {
+                                                                        snackbarHostState.showSnackbar(
+                                                                                "Added ${numbers.size} number(s) for $contactName",
+                                                                                duration = SnackbarDuration.Short
+                                                                        )
+                                                                }
+                                                        }
+                                                }
                                         } catch (e: Exception) {
                                                 e.printStackTrace()
                                                 scope.launch {
@@ -162,6 +183,27 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
                                 }
                         }
                 }
+        
+        // We need the permission launcher to trigger the contact launcher if granted
+        val permissionLauncherWithAction = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                try {
+                    val intent = android.content.Intent(
+                            android.content.Intent.ACTION_PICK,
+                            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+                    )
+                    contactLauncher.launch(intent)
+                } catch (e: Exception) {
+                     // Handle potential error
+                }
+            } else {
+                 scope.launch {
+                    snackbarHostState.showSnackbar("Permission denied. Cannot import contacts.")
+                 }
+            }
+        }
 
         Scaffold(
                 floatingActionButton = {
@@ -181,7 +223,7 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
         ) { paddingValues ->
                 // Show snackbar on delete
                 LaunchedEffect(uiState.contacts) {
-                        // This is a simplified way to show feedback. Ideally, ViewModel should emit
+                        // This is a simplified way to show feedback. ideally, ViewModel should emit
                         // specific events.
                         // For now, we rely on the list changing as a trigger, but only direct user
                         // action triggers the snackbar above.
@@ -252,21 +294,31 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
                                         }
                                 },
                                 onImportContact = {
-                                        try {
-                                                val intent =
-                                                        android.content.Intent(
-                                                                android.content.Intent.ACTION_PICK,
-                                                                android.provider.ContactsContract
-                                                                        .CommonDataKinds.Phone
-                                                                        .CONTENT_URI
-                                                        )
-                                                contactLauncher.launch(intent)
-                                        } catch (e: Exception) {
-                                                scope.launch {
-                                                        snackbarHostState.showSnackbar(
-                                                                "Unable to open contacts"
-                                                        )
-                                                }
+                                        // Check permission
+                                        val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                                            context,
+                                            android.Manifest.permission.READ_CONTACTS
+                                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                        
+                                        if (hasPermission) {
+                                            try {
+                                                    val intent =
+                                                            android.content.Intent(
+                                                                    android.content.Intent.ACTION_PICK,
+                                                                    android.provider.ContactsContract
+                                                                            .Contacts
+                                                                            .CONTENT_URI
+                                                            )
+                                                    contactLauncher.launch(intent)
+                                            } catch (e: Exception) {
+                                                    scope.launch {
+                                                            snackbarHostState.showSnackbar(
+                                                                    "Unable to open contacts"
+                                                            )
+                                                    }
+                                            }
+                                        } else {
+                                            permissionLauncherWithAction.launch(android.Manifest.permission.READ_CONTACTS)
                                         }
                                 }
                         )

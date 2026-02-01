@@ -1,5 +1,9 @@
 package com.safeguard.presentation.screens.settings
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -27,6 +31,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,33 +42,45 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.safeguard.presentation.common.simpleVerticalScrollbar
 import com.safeguard.presentation.theme.Error
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
         viewModel: SettingsViewModel = hiltViewModel(),
-        onNavigateToOnboarding: () -> Unit
+        onNavigateToOnboarding: () -> Unit,
+        onNavigateToLogin: () -> Unit = {}
 ) {
         val uiState by viewModel.uiState.collectAsState()
         var showClearLogsDialog by remember { mutableStateOf(false) }
         var showClearWhitelistDialog by remember { mutableStateOf(false) }
+        var showThemeDialog by remember { mutableStateOf(false) }
+        var showDeleteAccountDialog by remember { mutableStateOf(false) }
+        
+        val snackbarHostState = remember { SnackbarHostState() }
+        val scope = rememberCoroutineScope()
+        val context = LocalContext.current
 
         val scrollState = rememberScrollState()
-        Column(
-                modifier =
-                        Modifier.fillMaxSize()
-                                .background(MaterialTheme.colorScheme.background)
-                                .simpleVerticalScrollbar(scrollState)
-                                .verticalScroll(scrollState)
-                                .padding(16.dp)
+        Box(modifier = Modifier.fillMaxSize()) {
+                Column(
+                        modifier =
+                                Modifier.fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.background)
+                                        .simpleVerticalScrollbar(scrollState)
+                                        .verticalScroll(scrollState)
+                                        .padding(16.dp)
         ) {
                 // Header
                 Text(
@@ -78,6 +97,23 @@ fun SettingsScreen(
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
+
+                // Appearance Section
+                SettingsSection(title = "Appearance") {
+                        SettingsClickableItem(
+                                icon = Icons.Default.Info, // Placeholder for Palette/Theme icon
+                                title = "Theme",
+                                subtitle =
+                                        when (uiState.themeMode) {
+                                                1 -> "Light"
+                                                2 -> "Dark"
+                                                else -> "System Default"
+                                        },
+                                onClick = { showThemeDialog = true }
+                        )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Protection Settings Section
                 SettingsSection(title = "Protection") {
@@ -126,28 +162,25 @@ fun SettingsScreen(
                         )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Security Section
-                SettingsSection(title = "Security") {
-                        SettingsSwitchItem(
-                                icon = Icons.Default.Lock,
-                                title = "PIN Protection",
-                                subtitle = "Require PIN to access settings",
-                                isChecked = uiState.isPinEnabled,
-                                onCheckedChange = { viewModel.togglePinEnabled() }
-                        )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
                 // Permissions Section
                 SettingsSection(title = "Permissions") {
                         SettingsClickableItem(
                                 icon = Icons.Default.Shield,
                                 title = "Setup Permissions",
                                 subtitle = "Grant necessary permissions for full protection",
-                                onClick = { onNavigateToOnboarding() }
+                                onClick = {
+                                        scope.launch {
+                                                val hasAllPermissions = checkAllPermissionsGranted(context)
+                                                if (hasAllPermissions) {
+                                                        snackbarHostState.showSnackbar(
+                                                                "All permissions already configured ✓",
+                                                                duration = SnackbarDuration.Short
+                                                        )
+                                                } else {
+                                                        onNavigateToOnboarding()
+                                                }
+                                        }
+                                }
                         )
                 }
 
@@ -176,11 +209,43 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Account Section - Only show if user is logged in
+                val isUserLoggedIn =
+                        com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
+                if (isUserLoggedIn) {
+                        SettingsSection(title = "Account") {
+                                SettingsClickableItem(
+                                        icon =
+                                                Icons.Default
+                                                        .Info, // Using placeholder, consider logout
+                                        // icon
+                                        title = "Logout",
+                                        subtitle = "Sign out of your account",
+                                        onClick = {
+                                                viewModel.logout()
+                                                onNavigateToLogin()
+                                        }
+                                )
+
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                                SettingsClickableItem(
+                                        icon = Icons.Default.Block,
+                                        title = "Delete Account",
+                                        subtitle = "Permanently delete your account and all data",
+                                        onClick = { showDeleteAccountDialog = true },
+                                        isDestructive = true
+                                )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                }
+
                 // About Section
                 SettingsSection(title = "About") {
                         SettingsClickableItem(
                                 icon = Icons.Default.Info,
-                                title = "SafeGuard",
+                                title = "Call Sentry",
                                 subtitle = "Version 1.0.0",
                                 onClick = {}
                         )
@@ -188,6 +253,13 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
         }
+        
+        // Snackbar Host
+        SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter)
+        )
+    }
 
         // Clear Logs Dialog
         if (showClearLogsDialog) {
@@ -238,6 +310,91 @@ fun SettingsScreen(
                                         Text("Cancel")
                                 }
                         }
+                )
+        }
+
+        // Theme Selection Dialog
+        if (showThemeDialog) {
+                AlertDialog(
+                        onDismissRequest = { showThemeDialog = false },
+                        title = { Text("Select Theme") },
+                        text = {
+                                Column {
+                                        ThemeOption(
+                                                text = "System Default",
+                                                selected = uiState.themeMode == 0,
+                                                onClick = {
+                                                        viewModel.setThemeMode(0)
+                                                        showThemeDialog = false
+                                                }
+                                        )
+                                        ThemeOption(
+                                                text = "Light",
+                                                selected = uiState.themeMode == 1,
+                                                onClick = {
+                                                        viewModel.setThemeMode(1)
+                                                        showThemeDialog = false
+                                                }
+                                        )
+                                        ThemeOption(
+                                                text = "Dark",
+                                                selected = uiState.themeMode == 2,
+                                                onClick = {
+                                                        viewModel.setThemeMode(2)
+                                                        showThemeDialog = false
+                                                }
+                                        )
+                                }
+                        },
+                        confirmButton = {
+                                TextButton(onClick = { showThemeDialog = false }) { Text("Cancel") }
+                        }
+                )
+        }
+
+        // Delete Account Dialog
+        if (showDeleteAccountDialog) {
+                AlertDialog(
+                        onDismissRequest = { showDeleteAccountDialog = false },
+                        title = { Text("Delete Account") },
+                        text = {
+                                Text(
+                                        "Are you sure you want to permanently delete your account? This will:\n\n• Delete your profile from the server\n• Clear all local data\n• Sign you out\n\nThis action cannot be undone."
+                                )
+                        },
+                        confirmButton = {
+                                TextButton(
+                                        onClick = {
+                                                viewModel.deleteAccount()
+                                                showDeleteAccountDialog = false
+                                                onNavigateToLogin()
+                                        }
+                                ) { Text("Delete Forever", color = Error) }
+                        },
+                        dismissButton = {
+                                TextButton(onClick = { showDeleteAccountDialog = false }) {
+                                        Text("Cancel")
+                                }
+                        }
+                )
+        }
+}
+
+@Composable
+fun ThemeOption(text: String, selected: Boolean, onClick: () -> Unit) {
+        Row(
+                modifier =
+                        Modifier.fillMaxWidth()
+                                .clickable(onClick = onClick)
+                                .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+        ) {
+                androidx.compose.material3.RadioButton(selected = selected, onClick = onClick)
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
                 )
         }
 }
@@ -341,4 +498,19 @@ fun SettingsClickableItem(
                         )
                 }
         }
+}
+
+private fun checkAllPermissionsGranted(context: Context): Boolean {
+    val requiredPermissions = listOf(
+        Manifest.permission.READ_PHONE_STATE,
+        Manifest.permission.READ_CALL_LOG,
+        Manifest.permission.ANSWER_PHONE_CALLS,
+        Manifest.permission.READ_CONTACTS,
+        Manifest.permission.RECEIVE_SMS,
+        Manifest.permission.READ_SMS
+    )
+    
+    return requiredPermissions.all { permission ->
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+    }
 }

@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
@@ -47,99 +47,110 @@ fun OnboardingScreen(
         navController: NavController,
         viewModel: OnboardingViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+        val uiState by viewModel.uiState.collectAsState()
 
-    // Role Launcher
-    val roleLauncher =
-            rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.StartActivityForResult()
-            ) { viewModel.checkRoleStatus() }
+        // Role Launcher
+        val roleLauncher =
+                rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.StartActivityForResult()
+                ) { viewModel.checkRoleStatus() }
 
-    // Permission Launcher
-    val permissionLauncher =
-            rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestMultiplePermissions()
-            ) { viewModel.checkPermissionStatus() }
+        // Permission Launcher
+        val permissionLauncher =
+                rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.RequestMultiplePermissions()
+                ) { viewModel.checkPermissionStatus() }
 
-    LaunchedEffect(uiState.isOnboardingComplete) {
-        if (uiState.isOnboardingComplete) {
-            navController.navigate(Screen.Dashboard.route) {
-                popUpTo(Screen.Onboarding.route) { inclusive = true }
-            }
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-        ) {
-            // Step Content
-            when (uiState.currentStep) {
-                OnboardingStep.WELCOME -> {
-                    OnboardingPage(
-                            title = "Welcome to Call Sentry",
-                            description =
-                                    "Your personal shield against spam calls and messages. Take back control of your phone.",
-                            icon = Icons.Default.Security,
-                            buttonText = "Get Started",
-                            onButtonClick = { viewModel.nextStep() }
-                    )
+        LaunchedEffect(uiState.isOnboardingComplete) {
+                if (uiState.isOnboardingComplete) {
+                        navController.navigate(Screen.Dashboard.route) {
+                                popUpTo(Screen.Onboarding.route) { inclusive = true }
+                        }
                 }
-                OnboardingStep.DEFAULT_ROLE -> {
-                    OnboardingPage(
-                            title = "Enable Protection",
-                            description =
-                                    "To block spam calls effectively, Call Sentry needs to be your default Caller ID & Spam app.",
-                            icon = Icons.Default.Shield,
-                            buttonText = "Set as Default",
-                            onButtonClick = { viewModel.requestRole(roleLauncher) }
-                    )
-                }
-                OnboardingStep.PERMISSIONS -> {
-                    OnboardingPage(
-                            title = "Grant Permissions",
-                            description =
-                                    "We need access to your Contacts and Logs to verify callers and sync your trusted numbers.",
-                            icon = Icons.Default.Check,
-                            buttonText = "Allow Access",
-                            onButtonClick = { viewModel.requestPermissions(permissionLauncher) }
-                    )
-                }
-                OnboardingStep.LOGIN -> {
-                    // Placeholder for Phase 2 Auth
-                    OnboardingPage(
-                            title = "Sync Profile",
-                            description =
-                                    "Sign in to backup your whitelist and settings. (Coming Soon)",
-                            icon = Icons.Default.Security, // Use a placeholder icon
-                            buttonText = "Skip for Now", // Skip logic for MVP
-                            onButtonClick = { viewModel.completeOnboarding() }
-                    )
-                }
-            }
         }
 
-        // Progress Indicators
-        Row(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OnboardingStep.values().forEach { step ->
-                Box(
-                        modifier =
-                                Modifier.size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                                if (step == uiState.currentStep)
-                                                        MaterialTheme.colorScheme.primary
-                                                else MaterialTheme.colorScheme.surfaceVariant
+        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                Column(
+                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                ) {
+                        // Step Content
+                        when (uiState.currentStep) {
+                                OnboardingStep.WELCOME -> {
+                                        OnboardingPage(
+                                                title = "Welcome to Call Sentry",
+                                                description =
+                                                        "Your personal shield against spam calls and messages. Take back control of your phone.",
+                                                icon = Icons.Default.Security,
+                                                buttonText = "Get Started",
+                                                onButtonClick = { viewModel.nextStep() }
                                         )
-                )
-            }
+                                }
+                                OnboardingStep.DEFAULT_ROLE -> {
+                                        OnboardingPage(
+                                                title = "Enable Protection",
+                                                description =
+                                                        "To block spam calls effectively, Call Sentry needs to be your default Caller ID & Spam app.",
+                                                icon = Icons.Default.Shield,
+                                                buttonText = "Set as Default",
+                                                onButtonClick = {
+                                                        viewModel.requestRole(roleLauncher)
+                                                }
+                                        )
+                                }
+                                OnboardingStep.PERMISSIONS -> {
+                                        OnboardingPage(
+                                                title = "Grant Permissions",
+                                                description =
+                                                        "We need access to your Contacts and Logs to verify callers and sync your trusted numbers.",
+                                                icon = Icons.Default.Check,
+                                                buttonText = "Allow Access",
+                                                onButtonClick = {
+                                                        viewModel.requestPermissions(
+                                                                permissionLauncher
+                                                        )
+                                                }
+                                        )
+                                }
+                                OnboardingStep.LOGIN -> {
+                                        // Placeholder for Phase 2 Auth
+                                        OnboardingPage(
+                                                title = "Sync Profile",
+                                                description =
+                                                        "Sign in to backup your whitelist and settings.",
+                                                icon = Icons.Default.Security,
+                                                buttonText = "Login / Sign Up",
+                                                onButtonClick = {
+                                                        navController.navigate(Screen.Login.route)
+                                                }
+                                        )
+                                }
+                        }
+                }
+
+                // Progress Indicators
+                Row(
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                        OnboardingStep.values().forEach { step ->
+                                Box(
+                                        modifier =
+                                                Modifier.size(10.dp)
+                                                        .clip(CircleShape)
+                                                        .background(
+                                                                if (step == uiState.currentStep)
+                                                                        MaterialTheme.colorScheme
+                                                                                .primary
+                                                                else
+                                                                        MaterialTheme.colorScheme
+                                                                                .surfaceVariant
+                                                        )
+                                )
+                        }
+                }
         }
-    }
 }
 
 @Composable
@@ -150,52 +161,58 @@ fun OnboardingPage(
         buttonText: String,
         onButtonClick: () -> Unit
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-                modifier =
-                        Modifier.size(120.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                                .padding(32.dp),
-                contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    tint = MaterialTheme.colorScheme.primary
-            )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                        modifier =
+                                Modifier.size(120.dp)
+                                        .background(
+                                                MaterialTheme.colorScheme.primaryContainer,
+                                                CircleShape
+                                        )
+                                        .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                ) {
+                        Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                tint = MaterialTheme.colorScheme.primary
+                        )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Text(
+                        text = title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                )
+
+                Spacer(modifier = Modifier.height(48.dp))
+
+                Button(
+                        onClick = onButtonClick,
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp)
+                ) {
+                        Text(text = buttonText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null
+                        )
+                }
         }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onBackground
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-                text = description,
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp)
-        )
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        Button(
-                onClick = onButtonClick,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp)
-        ) {
-            Text(text = buttonText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(Icons.Default.ArrowForward, contentDescription = null)
-        }
-    }
 }

@@ -9,6 +9,7 @@ import com.safeguard.domain.model.BlockType
 import com.safeguard.domain.model.BlockedLog
 import com.safeguard.domain.repository.BlockedLogRepository
 import com.safeguard.domain.repository.WhitelistRepository
+import com.safeguard.util.PhoneNumberNormalizer
 import com.safeguard.util.PhoneNumberUtils
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -48,7 +49,8 @@ class SmsReceiver : BroadcastReceiver() {
                 val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
 
                 for (sms in messages) {
-                    val sender = sms.originatingAddress ?: continue
+                    val rawSender = sms.originatingAddress ?: continue
+                    val sender = PhoneNumberNormalizer.normalize(rawSender)
 
                     // Check emergency numbers - always allow
                     if (PhoneNumberUtils.isEmergencyNumber(sender)) {
