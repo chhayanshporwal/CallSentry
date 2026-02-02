@@ -88,6 +88,6 @@ sealed class Screen(
                 )
 
         companion object {
-                val bottomNavItems = listOf(Dashboard, Whitelist, BlockedLog, Settings)
+                val bottomNavItems get() = listOf(Dashboard, Whitelist, BlockedLog, Settings)
         }
 }
