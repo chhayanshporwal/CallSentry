@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -63,6 +64,10 @@ constructor(
                     DashboardUiState(isLoading = false)
                 }
             }
+                    .catch { e ->
+                        android.util.Log.e("DashboardViewModel", "Error in dashboard flow", e)
+                        _uiState.value = DashboardUiState(isLoading = false)
+                    }
                     .collect { state -> _uiState.value = state }
         }
     }

@@ -76,6 +76,8 @@ class SmsReceiver : BroadcastReceiver() {
                         logBlockedSms(sender, sms.messageBody)
                     }
                 }
+            } catch (e: Exception) {
+                android.util.Log.e("SmsReceiver", "Error processing SMS", e)
             } finally {
                 pendingResult.finish()
             }

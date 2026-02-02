@@ -32,6 +32,7 @@ class SafeGuardCallScreeningService : CallScreeningService() {
         val phoneNumber = PhoneNumberNormalizer.normalize(rawPhoneNumber)
 
         serviceScope.launch {
+            try {
             // Ensure dependencies are initialized
             if (!::settingsDataStore.isInitialized ||
                             !::whitelistRepository.isInitialized ||
@@ -71,27 +72,32 @@ class SafeGuardCallScreeningService : CallScreeningService() {
                         false
                     }
 
-            if (isWhitelisted) {
-                // Allow whitelisted numbers
-                // Clear attempts on successful connect if needed, but for now just allow
-                emergencyCallManager.clearAttempts(phoneNumber)
-                respondToCall(callDetails, createAllowResponse())
-            } else if (isEmergencyAllowed) {
-                // Allow due to repeated attempts (Emergency Breakthrough)
-                // We might want to log this as a special event or just allow it
-                // For now, allow it and clear attempts so the cycle resets
-                emergencyCallManager.clearAttempts(phoneNumber)
-                respondToCall(callDetails, createAllowResponse())
-            } else {
-                // Block non-whitelisted numbers and log
-                logBlockedCall(phoneNumber)
+                if (isWhitelisted) {
+                    // Allow whitelisted numbers
+                    // Clear attempts on successful connect if needed, but for now just allow
+                    emergencyCallManager.clearAttempts(phoneNumber)
+                    respondToCall(callDetails, createAllowResponse())
+                } else if (isEmergencyAllowed) {
+                    // Allow due to repeated attempts (Emergency Breakthrough)
+                    // We might want to log this as a special event or just allow it
+                    // For now, allow it and clear attempts so the cycle resets
+                    emergencyCallManager.clearAttempts(phoneNumber)
+                    respondToCall(callDetails, createAllowResponse())
+                } else {
+                    // Block non-whitelisted numbers and log
+                    logBlockedCall(phoneNumber)
 
-                // Record attempt for emergency breakthrough
-                if (isEmergencybreakthroughEnabled) {
-                    emergencyCallManager.recordAttempt(phoneNumber)
+                    // Record attempt for emergency breakthrough
+                    if (isEmergencybreakthroughEnabled) {
+                        emergencyCallManager.recordAttempt(phoneNumber)
+                    }
+
+                    respondToCall(callDetails, createBlockResponse())
                 }
-
-                respondToCall(callDetails, createBlockResponse())
+            } catch (e: Exception) {
+                android.util.Log.e("SafeGuardCallService", "Error screening call", e)
+                // Default to allowing call on crash to avoid blocking important calls
+                respondToCall(callDetails, createAllowResponse())
             }
         }
     }
