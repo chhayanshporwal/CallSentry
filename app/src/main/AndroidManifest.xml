@@ -45,6 +45,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".presentation.CrashActivity"
+            android:theme="@style/Theme.SafeGuard"
+            android:process=":crash_handler"
+            android:exported="false" />
+
         <!-- Call Screening Service -->
         <service
             android:name=".service.SafeGuardCallScreeningService"
