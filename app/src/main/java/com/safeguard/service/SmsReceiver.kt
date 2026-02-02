@@ -37,6 +37,14 @@ class SmsReceiver : BroadcastReceiver() {
 
         receiverScope.launch {
             try {
+                // Ensure dependencies are initialized
+                if (!::settingsDataStore.isInitialized ||
+                                !::whitelistRepository.isInitialized ||
+                                !::blockedLogRepository.isInitialized
+                ) {
+                    return@launch
+                }
+
                 // Check if blocking is enabled
                 val isBlockingEnabled =
                         settingsDataStore.isBlockingEnabled.first() &&

@@ -32,6 +32,15 @@ class SafeGuardCallScreeningService : CallScreeningService() {
         val phoneNumber = PhoneNumberNormalizer.normalize(rawPhoneNumber)
 
         serviceScope.launch {
+            // Ensure dependencies are initialized
+            if (!::settingsDataStore.isInitialized ||
+                            !::whitelistRepository.isInitialized ||
+                            !::blockedLogRepository.isInitialized ||
+                            !::emergencyCallManager.isInitialized
+            ) {
+                return@launch
+            }
+
             // Check if blocking is enabled
             val isBlockingEnabled =
                     settingsDataStore.isBlockingEnabled.first() &&

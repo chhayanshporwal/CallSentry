@@ -123,12 +123,15 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
                                         disabledContainerColor = Color.White.copy(alpha = 0.6f),
                                         disabledContentColor = Color(0xFF3C4043).copy(alpha = 0.4f)
                                 ),
-                        elevation = ButtonDefaults.buttonElevation(
-                                defaultElevation = 2.dp,
-                                pressedElevation = 8.dp,
-                                disabledElevation = 0.dp
-                        ),
-                        border = if (!uiState.isLoading) BorderStroke(1.dp, Color(0xFFDADCE0)) else null
+                        elevation =
+                                ButtonDefaults.buttonElevation(
+                                        defaultElevation = 2.dp,
+                                        pressedElevation = 8.dp,
+                                        disabledElevation = 0.dp
+                                ),
+                        border =
+                                if (!uiState.isLoading) BorderStroke(1.dp, Color(0xFFDADCE0))
+                                else null
                 ) {
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
@@ -230,7 +233,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
 
             if (uiState.errorMessage != null) {
                 Text(
-                        text = uiState.errorMessage!!,
+                        text = uiState.errorMessage ?: "",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                 )
