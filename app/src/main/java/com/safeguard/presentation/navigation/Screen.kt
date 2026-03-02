@@ -83,11 +83,20 @@ sealed class Screen(
                 Screen(
                         route = "profile",
                         title = "Profile",
-                        selectedIcon = Icons.Filled.Person, // Placeholder
-                        unselectedIcon = Icons.Outlined.Person // Placeholder
+                        selectedIcon = Icons.Filled.Person,
+                        unselectedIcon = Icons.Outlined.Person
+                )
+
+        object PrivacyPolicy :
+                Screen(
+                        route = "privacy_policy",
+                        title = "Privacy Policy",
+                        selectedIcon = Icons.Filled.Info,
+                        unselectedIcon = Icons.Outlined.Info
                 )
 
         companion object {
-                val bottomNavItems get() = listOf(Dashboard, Whitelist, BlockedLog, Settings)
+                val bottomNavItems
+                        get() = listOf(Dashboard, Whitelist, BlockedLog, Settings)
         }
 }

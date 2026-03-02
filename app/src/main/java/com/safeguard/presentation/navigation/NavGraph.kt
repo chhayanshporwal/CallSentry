@@ -43,6 +43,9 @@ fun NavGraph(
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
+                    },
+                    onNavigateToPrivacyPolicy = {
+                        navController.navigate(Screen.PrivacyPolicy.route)
                     }
             )
         }
@@ -65,6 +68,12 @@ fun NavGraph(
 
         composable(route = Screen.Login.route) {
             com.safeguard.presentation.screens.auth.LoginScreen(navController = navController)
+        }
+
+        composable(route = Screen.PrivacyPolicy.route) {
+            com.safeguard.presentation.screens.settings.PrivacyPolicyScreen(
+                    navController = navController
+            )
         }
     }
 }
