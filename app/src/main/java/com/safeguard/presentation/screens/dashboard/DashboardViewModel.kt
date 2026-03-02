@@ -79,22 +79,52 @@ constructor(
 
     fun toggleBlocking() {
         viewModelScope.launch {
-            val newValue = !_uiState.value.isBlockingEnabled
+            val currentState = _uiState.value
+            val newValue = !currentState.isBlockingEnabled
+            
             settingsDataStore.setBlockingEnabled(newValue)
+            
+            // If turning ON master switch, and both sub-switches are OFF, turn them both ON
+            if (newValue && !currentState.isCallBlockingEnabled && !currentState.isSmsBlockingEnabled) {
+                settingsDataStore.setCallBlockingEnabled(true)
+                settingsDataStore.setSmsBlockingEnabled(true)
+            }
         }
     }
 
     fun toggleCallBlocking() {
         viewModelScope.launch {
-            val newValue = !_uiState.value.isCallBlockingEnabled
+            val currentState = _uiState.value
+            val newValue = !currentState.isCallBlockingEnabled
+            
             settingsDataStore.setCallBlockingEnabled(newValue)
+            
+            // If turning OFF call blocking, and SMS blocking is already OFF, turn OFF master switch
+            if (!newValue && !currentState.isSmsBlockingEnabled) {
+                settingsDataStore.setBlockingEnabled(false)
+            }
+            // If turning ON call blocking, ensure master switch is ON
+            else if (newValue && !currentState.isBlockingEnabled) {
+                 settingsDataStore.setBlockingEnabled(true)
+            }
         }
     }
 
     fun toggleSmsBlocking() {
         viewModelScope.launch {
-            val newValue = !_uiState.value.isSmsBlockingEnabled
+            val currentState = _uiState.value
+            val newValue = !currentState.isSmsBlockingEnabled
+            
             settingsDataStore.setSmsBlockingEnabled(newValue)
+            
+            // If turning OFF sms blocking, and Call blocking is already OFF, turn OFF master switch
+            if (!newValue && !currentState.isCallBlockingEnabled) {
+                settingsDataStore.setBlockingEnabled(false)
+            }
+             // If turning ON sms blocking, ensure master switch is ON
+            else if (newValue && !currentState.isBlockingEnabled) {
+                 settingsDataStore.setBlockingEnabled(true)
+            }
         }
     }
 

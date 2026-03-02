@@ -65,7 +65,12 @@ constructor(
         _uiState.update { it.copy(showAddDialog = false) }
     }
 
-    fun addContact(phoneNumber: String, name: String?) {
+    fun addContact(
+        phoneNumber: String,
+        name: String?,
+        allowCalls: Boolean = true,
+        allowSms: Boolean = true
+    ) {
         viewModelScope.launch {
             // Normalize phone number first
             val normalizedNumber = PhoneNumberNormalizer.normalize(phoneNumber)
@@ -78,9 +83,30 @@ constructor(
                     }
 
             whitelistRepository.addContact(
-                    WhitelistContact(phoneNumber = normalizedNumber, displayName = resolvedName)
+                    WhitelistContact(
+                        phoneNumber = normalizedNumber,
+                        displayName = resolvedName,
+                        allowCalls = allowCalls,
+                        allowSms = allowSms
+                    )
             )
             hideAddDialog()
+        }
+    }
+
+    fun toggleCallPermission(contact: WhitelistContact) {
+        viewModelScope.launch {
+            whitelistRepository.updateContact(
+                contact.copy(allowCalls = !contact.allowCalls)
+            )
+        }
+    }
+
+    fun toggleSmsPermission(contact: WhitelistContact) {
+        viewModelScope.launch {
+            whitelistRepository.updateContact(
+                contact.copy(allowSms = !contact.allowSms)
+            )
         }
     }
 

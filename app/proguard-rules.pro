@@ -14,6 +14,24 @@
     public static int i(...);
 }
 
+# Keep domain models (used by Firestore serialization via reflection)
+-keep class com.safeguard.domain.model.** { *; }
+
+# Firebase Auth
+-keep class com.google.firebase.auth.** { *; }
+-dontwarn com.google.firebase.auth.**
+
+# Firebase Firestore
+-keep class com.google.firebase.firestore.** { *; }
+-dontwarn com.google.firebase.firestore.**
+
+# Google Play Services Auth
+-keep class com.google.android.gms.auth.** { *; }
+-dontwarn com.google.android.gms.auth.**
+
+# Keep Kotlin metadata for reflection
+-keep class kotlin.Metadata { *; }
+
 # Obfuscate
 -repackageclasses ''
 -allowaccessmodification

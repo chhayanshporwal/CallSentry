@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection — each user can only access their own document
+    match /users/{userId} {
+      // Allow read only if the requesting user's UID matches the document ID
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Allow create only for authenticated users creating their own document
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && isValidUserProfile(request.resource.data);
+
+      // Allow update only for the document owner with valid data
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && isValidUserProfile(request.resource.data);
+
+      // Allow delete only for the document owner
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Block all other collections by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Validation function for user profile data
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid'])
+        && data.uid is string
+        && data.uid.size() > 0
+        && data.uid.size() <= 128
+        && (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() <= 100))
+        && (!('email' in data) || data.email == null || (data.email is string && data.email.size() <= 254))
+        && (!('phoneNumber' in data) || data.phoneNumber == null || (data.phoneNumber is string && data.phoneNumber.size() <= 15))
+        && (!('photoUrl' in data) || data.photoUrl == null || (data.photoUrl is string && data.photoUrl.size() <= 500));
+    }
+  }
+}

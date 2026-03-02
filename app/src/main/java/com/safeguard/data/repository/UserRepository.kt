@@ -33,4 +33,42 @@ class UserRepository @Inject constructor(private val firestore: FirebaseFirestor
             Result.failure(e)
         }
     }
+
+    suspend fun updateUserProfile(uid: String, updates: Map<String, Any>): Result<Unit> {
+        return try {
+            usersCollection.document(uid).update(updates).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteUserProfile(uid: String): Result<Unit> {
+        return try {
+            usersCollection.document(uid).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun isEmailUnique(email: String, currentUid: String): Result<Boolean> {
+        return try {
+            val snapshot = usersCollection.whereEqualTo("email", email).get().await()
+            val isUnique = snapshot.documents.all { it.id == currentUid }
+            Result.success(isUnique)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun isPhoneUnique(phone: String, currentUid: String): Result<Boolean> {
+        return try {
+            val snapshot = usersCollection.whereEqualTo("phoneNumber", phone).get().await()
+            val isUnique = snapshot.documents.all { it.id == currentUid }
+            Result.success(isUnique)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

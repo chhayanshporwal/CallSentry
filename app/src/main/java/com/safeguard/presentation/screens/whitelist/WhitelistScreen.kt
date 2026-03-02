@@ -28,14 +28,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhoneDisabled
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -80,20 +84,24 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
         val snackbarHostState = remember { SnackbarHostState() }
 
         // Permission Launcher
-        val permissionLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            if (isGranted) {
-                 // We can't easily re-trigger the pick intent here because we need the launcher
-                 // from the scope where it was called. 
-                 // Simple solution: User clicks "Import" again. 
-                 // Better solution: Trigger the contact picker directly here? 
-                 // Actually, best flow: Check permission in "onImportContact". If granted, launch picker. If not, launch permission.
-                 // If permission callback returns true, launch picker *then*.
-                 // But we can't capture the `contactLauncher` easily if it's defined after.
-                 // Let's define contactLauncher first.
-            }
-        }
+        val permissionLauncher =
+                rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.RequestPermission()
+                ) { isGranted ->
+                        if (isGranted) {
+                                // We can't easily re-trigger the pick intent here because we need
+                                // the launcher
+                                // from the scope where it was called.
+                                // Simple solution: User clicks "Import" again.
+                                // Better solution: Trigger the contact picker directly here?
+                                // Actually, best flow: Check permission in "onImportContact". If
+                                // granted, launch picker. If not, launch permission.
+                                // If permission callback returns true, launch picker *then*.
+                                // But we can't capture the `contactLauncher` easily if it's defined
+                                // after.
+                                // Let's define contactLauncher first.
+                        }
+                }
 
         // Contact Picker
         val contactLauncher =
@@ -105,69 +113,126 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
                                 if (contactUri != null) {
                                         try {
                                                 // First get the contact name and ID
-                                                val nameProjection = arrayOf(
-                                                        ContactsContract.Contacts._ID,
-                                                        ContactsContract.Contacts.DISPLAY_NAME
-                                                )
+                                                val nameProjection =
+                                                        arrayOf(
+                                                                ContactsContract.Contacts._ID,
+                                                                ContactsContract.Contacts
+                                                                        .DISPLAY_NAME
+                                                        )
                                                 var contactId: String? = null
                                                 var contactName = "Unknown"
-                                                
-                                                context.contentResolver.query(
-                                                        contactUri,
-                                                        nameProjection,
-                                                        null,
-                                                        null,
-                                                        null
-                                                )?.use { cursor ->
-                                                        if (cursor.moveToFirst()) {
-                                                                val idIndex = cursor.getColumnIndex(ContactsContract.Contacts._ID)
-                                                                val nameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
-                                                                contactId = if (idIndex >= 0) cursor.getString(idIndex) else null
-                                                                contactName = if (nameIndex >= 0) cursor.getString(nameIndex) else "Unknown"
-                                                        }
-                                                }
 
-                                                // Now query all phone numbers for this contact
-                                                if (contactId != null) {
-                                                        val phoneProjection = arrayOf(
-                                                                ContactsContract.CommonDataKinds.Phone.NUMBER
-                                                        )
-                                                        
-                                                        val numbers = mutableSetOf<String>() // Use Set to avoid duplicates
-                                                        context.contentResolver.query(
-                                                                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                                                                phoneProjection,
-                                                                "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-                                                                arrayOf(contactId),
+                                                context.contentResolver.query(
+                                                                contactUri,
+                                                                nameProjection,
+                                                                null,
+                                                                null,
                                                                 null
-                                                        )?.use { cursor ->
-                                                                while (cursor.moveToNext()) {
-                                                                        val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                                                                        val number = if (numberIndex >= 0) cursor.getString(numberIndex) else ""
-                                                                        
-                                                                        if (number.isNotBlank()) {
-                                                                                numbers.add(number)
-                                                                        }
+                                                        )
+                                                        ?.use { cursor ->
+                                                                if (cursor.moveToFirst()) {
+                                                                        val idIndex =
+                                                                                cursor.getColumnIndex(
+                                                                                        ContactsContract
+                                                                                                .Contacts
+                                                                                                ._ID
+                                                                                )
+                                                                        val nameIndex =
+                                                                                cursor.getColumnIndex(
+                                                                                        ContactsContract
+                                                                                                .Contacts
+                                                                                                .DISPLAY_NAME
+                                                                                )
+                                                                        contactId =
+                                                                                if (idIndex >= 0)
+                                                                                        cursor.getString(
+                                                                                                idIndex
+                                                                                        )
+                                                                                else null
+                                                                        contactName =
+                                                                                if (nameIndex >= 0)
+                                                                                        cursor.getString(
+                                                                                                nameIndex
+                                                                                        )
+                                                                                else "Unknown"
                                                                 }
                                                         }
 
+                                                // Now query all phone numbers for this contact
+                                                if (contactId != null) {
+                                                        val phoneProjection =
+                                                                arrayOf(
+                                                                        ContactsContract
+                                                                                .CommonDataKinds
+                                                                                .Phone.NUMBER
+                                                                )
+
+                                                        val numbers =
+                                                                mutableSetOf<String>() // Use Set to
+                                                        // avoid
+                                                        // duplicates
+                                                        context.contentResolver.query(
+                                                                        ContactsContract
+                                                                                .CommonDataKinds
+                                                                                .Phone.CONTENT_URI,
+                                                                        phoneProjection,
+                                                                        "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                                                                        arrayOf(contactId),
+                                                                        null
+                                                                )
+                                                                ?.use { cursor ->
+                                                                        while (cursor.moveToNext()) {
+                                                                                val numberIndex =
+                                                                                        cursor.getColumnIndex(
+                                                                                                ContactsContract
+                                                                                                        .CommonDataKinds
+                                                                                                        .Phone
+                                                                                                        .NUMBER
+                                                                                        )
+                                                                                val number =
+                                                                                        if (numberIndex >=
+                                                                                                        0
+                                                                                        )
+                                                                                                cursor.getString(
+                                                                                                        numberIndex
+                                                                                                )
+                                                                                        else ""
+
+                                                                                if (number.isNotBlank()
+                                                                                ) {
+                                                                                        numbers.add(
+                                                                                                number
+                                                                                        )
+                                                                                }
+                                                                        }
+                                                                }
+
                                                         if (numbers.isEmpty()) {
                                                                 scope.launch {
-                                                                        snackbarHostState.showSnackbar(
-                                                                                "No phone numbers found for this contact",
-                                                                                duration = SnackbarDuration.Short
-                                                                        )
+                                                                        snackbarHostState
+                                                                                .showSnackbar(
+                                                                                        "No phone numbers found for this contact",
+                                                                                        duration =
+                                                                                                SnackbarDuration
+                                                                                                        .Short
+                                                                                )
                                                                 }
                                                         } else {
                                                                 // Automatically add ALL numbers
                                                                 numbers.forEach { number ->
-                                                                    viewModel.addContact(number, contactName)
+                                                                        viewModel.addContact(
+                                                                                number,
+                                                                                contactName
+                                                                        )
                                                                 }
                                                                 scope.launch {
-                                                                        snackbarHostState.showSnackbar(
-                                                                                "Added ${numbers.size} number(s) for $contactName",
-                                                                                duration = SnackbarDuration.Short
-                                                                        )
+                                                                        snackbarHostState
+                                                                                .showSnackbar(
+                                                                                        "Added ${numbers.size} number(s) for $contactName",
+                                                                                        duration =
+                                                                                                SnackbarDuration
+                                                                                                        .Short
+                                                                                )
                                                                 }
                                                         }
                                                 }
@@ -183,27 +248,32 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
                                 }
                         }
                 }
-        
+
         // We need the permission launcher to trigger the contact launcher if granted
-        val permissionLauncherWithAction = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            if (isGranted) {
-                try {
-                    val intent = android.content.Intent(
-                            android.content.Intent.ACTION_PICK,
-                            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI
-                    )
-                    contactLauncher.launch(intent)
-                } catch (e: Exception) {
-                     // Handle potential error
+        val permissionLauncherWithAction =
+                rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.RequestPermission()
+                ) { isGranted ->
+                        if (isGranted) {
+                                try {
+                                        val intent =
+                                                android.content.Intent(
+                                                        android.content.Intent.ACTION_PICK,
+                                                        android.provider.ContactsContract
+                                                                .CommonDataKinds.Phone.CONTENT_URI
+                                                )
+                                        contactLauncher.launch(intent)
+                                } catch (e: Exception) {
+                                        // Handle potential error
+                                }
+                        } else {
+                                scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                                "Permission denied. Cannot import contacts."
+                                        )
+                                }
+                        }
                 }
-            } else {
-                 scope.launch {
-                    snackbarHostState.showSnackbar("Permission denied. Cannot import contacts.")
-                 }
-            }
-        }
 
         Scaffold(
                 floatingActionButton = {
@@ -272,6 +342,16 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
                                         items(uiState.contacts, key = { it.id }) { contact ->
                                                 ContactCard(
                                                         contact = contact,
+                                                        onToggleCalls = {
+                                                                viewModel.toggleCallPermission(
+                                                                        contact
+                                                                )
+                                                        },
+                                                        onToggleSms = {
+                                                                viewModel.toggleSmsPermission(
+                                                                        contact
+                                                                )
+                                                        },
                                                         onDelete = {
                                                                 viewModel.showDeleteConfirmation(
                                                                         contact
@@ -287,38 +367,47 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
                 if (uiState.showAddDialog) {
                         AddContactDialog(
                                 onDismiss = { viewModel.hideAddDialog() },
-                                onConfirm = { phone, name ->
-                                        viewModel.addContact(phone, name)
+                                onConfirm = { phone, name, allowCalls, allowSms ->
+                                        viewModel.addContact(phone, name, allowCalls, allowSms)
                                         scope.launch {
                                                 snackbarHostState.showSnackbar("Contact added")
                                         }
                                 },
                                 onImportContact = {
                                         // Check permission
-                                        val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
-                                            context,
-                                            android.Manifest.permission.READ_CONTACTS
-                                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                                        
+                                        val hasPermission =
+                                                androidx.core.content.ContextCompat
+                                                        .checkSelfPermission(
+                                                                context,
+                                                                android.Manifest.permission
+                                                                        .READ_CONTACTS
+                                                        ) ==
+                                                        android.content.pm.PackageManager
+                                                                .PERMISSION_GRANTED
+
                                         if (hasPermission) {
-                                            try {
-                                                    val intent =
-                                                            android.content.Intent(
-                                                                    android.content.Intent.ACTION_PICK,
-                                                                    android.provider.ContactsContract
-                                                                            .Contacts
-                                                                            .CONTENT_URI
-                                                            )
-                                                    contactLauncher.launch(intent)
-                                            } catch (e: Exception) {
-                                                    scope.launch {
-                                                            snackbarHostState.showSnackbar(
-                                                                    "Unable to open contacts"
-                                                            )
-                                                    }
-                                            }
+                                                try {
+                                                        val intent =
+                                                                android.content.Intent(
+                                                                        android.content.Intent
+                                                                                .ACTION_PICK,
+                                                                        android.provider
+                                                                                .ContactsContract
+                                                                                .Contacts
+                                                                                .CONTENT_URI
+                                                                )
+                                                        contactLauncher.launch(intent)
+                                                } catch (e: Exception) {
+                                                        scope.launch {
+                                                                snackbarHostState.showSnackbar(
+                                                                        "Unable to open contacts"
+                                                                )
+                                                        }
+                                                }
                                         } else {
-                                            permissionLauncherWithAction.launch(android.Manifest.permission.READ_CONTACTS)
+                                                permissionLauncherWithAction.launch(
+                                                        android.Manifest.permission.READ_CONTACTS
+                                                )
                                         }
                                 }
                         )
@@ -382,7 +471,12 @@ fun SearchBar(query: String, onQueryChange: (String) -> Unit) {
 }
 
 @Composable
-fun ContactCard(contact: WhitelistContact, onDelete: () -> Unit) {
+fun ContactCard(
+        contact: WhitelistContact,
+        onToggleCalls: () -> Unit,
+        onToggleSms: () -> Unit,
+        onDelete: () -> Unit
+) {
         Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -429,6 +523,38 @@ fun ContactCard(contact: WhitelistContact, onDelete: () -> Unit) {
                                 )
                         }
 
+                        // Call toggle
+                        IconButton(onClick = onToggleCalls) {
+                                Icon(
+                                        imageVector =
+                                                if (contact.allowCalls) Icons.Default.Call
+                                                else Icons.Default.PhoneDisabled,
+                                        contentDescription =
+                                                if (contact.allowCalls) "Calls allowed"
+                                                else "Calls blocked",
+                                        tint =
+                                                if (contact.allowCalls) Primary
+                                                else
+                                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                                                .copy(alpha = 0.4f)
+                                )
+                        }
+
+                        // SMS toggle
+                        IconButton(onClick = onToggleSms) {
+                                Icon(
+                                        imageVector = Icons.Default.Sms,
+                                        contentDescription =
+                                                if (contact.allowSms) "SMS allowed"
+                                                else "SMS blocked",
+                                        tint =
+                                                if (contact.allowSms) Primary
+                                                else
+                                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                                                .copy(alpha = 0.4f)
+                                )
+                        }
+
                         IconButton(onClick = onDelete) {
                                 Icon(
                                         imageVector = Icons.Default.Delete,
@@ -471,11 +597,13 @@ fun EmptyState() {
 @Composable
 fun AddContactDialog(
         onDismiss: () -> Unit,
-        onConfirm: (String, String?) -> Unit,
+        onConfirm: (String, String?, Boolean, Boolean) -> Unit,
         onImportContact: () -> Unit
 ) {
         var phoneNumber by remember { mutableStateOf("") }
         var name by remember { mutableStateOf("") }
+        var allowCalls by remember { mutableStateOf(true) }
+        var allowSms by remember { mutableStateOf(true) }
         var isError by remember { mutableStateOf(false) }
 
         fun validateAndConfirm() {
@@ -483,7 +611,7 @@ fun AddContactDialog(
                         isError = true
                 } else {
                         isError = false
-                        onConfirm(phoneNumber, name)
+                        onConfirm(phoneNumber, name, allowCalls, allowSms)
                 }
         }
 
@@ -520,6 +648,69 @@ fun AddContactDialog(
                                 )
 
                                 Spacer(modifier = Modifier.height(16.dp))
+
+                                // Permission toggles
+                                Text(
+                                        text = "Allow this contact to:",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                ) {
+                                        Checkbox(
+                                                checked = allowCalls,
+                                                onCheckedChange = { allowCalls = it }
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                                imageVector = Icons.Default.Call,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp),
+                                                tint =
+                                                        if (allowCalls) Primary
+                                                        else
+                                                                MaterialTheme.colorScheme
+                                                                        .onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                                text = "Calls",
+                                                style = MaterialTheme.typography.bodyMedium
+                                        )
+                                }
+
+                                Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                ) {
+                                        Checkbox(
+                                                checked = allowSms,
+                                                onCheckedChange = { allowSms = it }
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                                imageVector = Icons.Default.Sms,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp),
+                                                tint =
+                                                        if (allowSms) Primary
+                                                        else
+                                                                MaterialTheme.colorScheme
+                                                                        .onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                                text = "Messages",
+                                                style = MaterialTheme.typography.bodyMedium
+                                        )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
 
                                 TextButton(
                                         onClick = onImportContact,

@@ -70,8 +70,10 @@ constructor(
             return
         }
 
-        if (phoneNumber.isBlank()) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Please enter a phone number")
+        if (phoneNumber.isBlank() || phoneNumber.length != 10 || !phoneNumber.all { it.isDigit() }
+        ) {
+            _uiState.value =
+                    _uiState.value.copy(errorMessage = "Please enter a valid 10-digit phone number")
             return
         }
 

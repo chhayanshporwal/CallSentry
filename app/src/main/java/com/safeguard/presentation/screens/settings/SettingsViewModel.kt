@@ -3,8 +3,8 @@ package com.safeguard.presentation.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.safeguard.data.preferences.SettingsDataStore
+import com.safeguard.data.repository.UserRepository
 import com.safeguard.domain.repository.BlockedLogRepository
 import com.safeguard.domain.repository.WhitelistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +21,9 @@ class SettingsViewModel
 constructor(
         private val settingsDataStore: SettingsDataStore,
         private val whitelistRepository: WhitelistRepository,
-        private val blockedLogRepository: BlockedLogRepository
+        private val blockedLogRepository: BlockedLogRepository,
+        private val firebaseAuth: FirebaseAuth,
+        private val userRepository: UserRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -102,7 +104,7 @@ constructor(
     fun logout() {
         viewModelScope.launch {
             try {
-                FirebaseAuth.getInstance().signOut()
+                firebaseAuth.signOut()
                 // Clear local data
                 clearBlockedLogs()
                 clearWhitelist()
@@ -115,12 +117,12 @@ constructor(
     fun deleteAccount() {
         viewModelScope.launch {
             try {
-                val user = FirebaseAuth.getInstance().currentUser
+                val user = firebaseAuth.currentUser
                 val userId = user?.uid
 
-                // Delete from Firestore
+                // Delete from Firestore via repository
                 if (userId != null) {
-                    FirebaseFirestore.getInstance().collection("users").document(userId).delete()
+                    userRepository.deleteUserProfile(userId)
                 }
 
                 // Delete Firebase auth account
