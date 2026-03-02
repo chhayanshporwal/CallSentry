@@ -20,6 +20,7 @@ import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
 import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
+import com.safeguard.data.repository.UserRepository
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -33,7 +34,8 @@ enum class PhoneVerificationStep {
 fun PhoneVerificationDialog(
         currentPhone: String?,
         onDismiss: () -> Unit,
-        onVerified: (String) -> Unit
+        onVerified: (String) -> Unit,
+        userRepository: UserRepository? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -102,11 +104,23 @@ fun PhoneVerificationDialog(
                             isLoading = true
                             auth.currentUser?.updatePhoneNumber(credential)?.await()
                             val fullPhone = "+91$phoneNumber"
-                            firestore
-                                    .collection("users")
-                                    .document(auth.currentUser!!.uid)
-                                    .update("phoneNumber", fullPhone)
-                                    .await()
+                            val currentUser = auth.currentUser
+                            if (currentUser != null) {
+                                // Update phone in user profile
+                                firestore
+                                        .collection("users")
+                                        .document(currentUser.uid)
+                                        .update("phoneNumber", fullPhone)
+                                        .await()
+
+                                // Update phone claim in lookup collection
+                                if (userRepository != null) {
+                                    if (!currentPhone.isNullOrBlank()) {
+                                        userRepository.releasePhone(currentPhone, currentUser.uid)
+                                    }
+                                    userRepository.claimPhone(fullPhone, currentUser.uid)
+                                }
+                            }
                             countDownTimer?.cancel()
                             onVerified(fullPhone)
                         } catch (e: Exception) {
@@ -142,6 +156,26 @@ fun PhoneVerificationDialog(
                 error = null
 
                 val fullPhone = "+91$phoneNumber"
+
+                // Check phone uniqueness before sending OTP
+                if (!isResend && userRepository != null) {
+                    val currentUid = auth.currentUser?.uid ?: ""
+                    val result = userRepository.isPhoneUnique(fullPhone, currentUid)
+                    result.fold(
+                            onSuccess = { isUnique ->
+                                if (!isUnique) {
+                                    isLoading = false
+                                    error = "A user already exists with this phone number"
+                                    return@launch
+                                }
+                            },
+                            onFailure = {
+                                isLoading = false
+                                error = "Could not verify phone availability. Please try again."
+                                return@launch
+                            }
+                    )
+                }
 
                 val optionsBuilder =
                         PhoneAuthOptions.newBuilder(auth)
@@ -183,6 +217,14 @@ fun PhoneVerificationDialog(
                             .document(currentUser.uid)
                             .update("phoneNumber", fullPhone)
                             .await()
+
+                    // Update phone claim in lookup collection
+                    if (userRepository != null) {
+                        if (!currentPhone.isNullOrBlank()) {
+                            userRepository.releasePhone(currentPhone, currentUser.uid)
+                        }
+                        userRepository.claimPhone(fullPhone, currentUser.uid)
+                    }
                 }
 
                 countDownTimer?.cancel()

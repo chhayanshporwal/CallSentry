@@ -11,14 +11,27 @@ import kotlinx.coroutines.tasks.await
 @Singleton
 class UserRepository @Inject constructor(private val firestore: FirebaseFirestore) {
     private val usersCollection = firestore.collection("users")
+    private val emailLookup = firestore.collection("emailLookup")
+    private val phoneLookup = firestore.collection("phoneLookup")
 
     companion object {
         private const val TAG = "UserRepository"
     }
 
+    // ── Profile CRUD ──────────────────────────────────────────────
+
     suspend fun saveUserProfile(userProfile: UserProfile): Result<Unit> {
         return try {
             usersCollection.document(userProfile.uid).set(userProfile, SetOptions.merge()).await()
+
+            // Claim credentials in lookup collections
+            if (!userProfile.email.isNullOrBlank()) {
+                claimEmail(userProfile.email, userProfile.uid)
+            }
+            if (userProfile.phoneNumber.isNotBlank()) {
+                claimPhone(userProfile.phoneNumber, userProfile.uid)
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save user profile", e)
@@ -61,40 +74,89 @@ class UserRepository @Inject constructor(private val firestore: FirebaseFirestor
         }
     }
 
+    // ── Uniqueness checks via lookup collections ──────────────────
+
     /**
-     * Checks if an email is unique across users. Gracefully handles PERMISSION_DENIED by returning
-     * true (allow the save). This query requires Firestore rules that allow collection-level
-     * queries, which may not be configured. We fail open to avoid blocking the user.
+     * Checks if an email is available. Returns true if the email is not claimed
+     * by any other user (or not claimed at all).
      */
     suspend fun isEmailUnique(email: String, currentUid: String): Result<Boolean> {
         return try {
-            val snapshot = usersCollection.whereEqualTo("email", email).get().await()
-            val isUnique = snapshot.documents.all { it.id == currentUid }
-            Result.success(isUnique)
+            val docKey = email.lowercase().trim()
+            val doc = emailLookup.document(docKey).get().await()
+            if (!doc.exists()) {
+                Result.success(true)
+            } else {
+                val ownerUid = doc.getString("uid")
+                Result.success(ownerUid == currentUid)
+            }
         } catch (e: Exception) {
-            Log.w(
-                    TAG,
-                    "Email uniqueness check failed (possibly PERMISSION_DENIED), allowing save",
-                    e
-            )
-            // Fail open — don't block the user from saving their profile
-            Result.success(true)
+            Log.e(TAG, "Email uniqueness check failed", e)
+            Result.failure(e)
         }
     }
 
-    /** Checks if a phone number is unique across users. Same graceful handling as isEmailUnique. */
+    /**
+     * Checks if a phone number is available. Returns true if the phone is not
+     * claimed by any other user (or not claimed at all).
+     */
     suspend fun isPhoneUnique(phone: String, currentUid: String): Result<Boolean> {
         return try {
-            val snapshot = usersCollection.whereEqualTo("phoneNumber", phone).get().await()
-            val isUnique = snapshot.documents.all { it.id == currentUid }
-            Result.success(isUnique)
+            val docKey = phone.trim()
+            val doc = phoneLookup.document(docKey).get().await()
+            if (!doc.exists()) {
+                Result.success(true)
+            } else {
+                val ownerUid = doc.getString("uid")
+                Result.success(ownerUid == currentUid)
+            }
         } catch (e: Exception) {
-            Log.w(
-                    TAG,
-                    "Phone uniqueness check failed (possibly PERMISSION_DENIED), allowing save",
-                    e
-            )
-            Result.success(true)
+            Log.e(TAG, "Phone uniqueness check failed", e)
+            Result.failure(e)
+        }
+    }
+
+    // ── Claim / Release credentials ───────────────────────────────
+
+    suspend fun claimEmail(email: String, uid: String) {
+        try {
+            val docKey = email.lowercase().trim()
+            emailLookup.document(docKey).set(hashMapOf("uid" to uid)).await()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to claim email in lookup", e)
+        }
+    }
+
+    suspend fun releaseEmail(email: String, uid: String) {
+        try {
+            val docKey = email.lowercase().trim()
+            val doc = emailLookup.document(docKey).get().await()
+            if (doc.exists() && doc.getString("uid") == uid) {
+                emailLookup.document(docKey).delete().await()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to release email from lookup", e)
+        }
+    }
+
+    suspend fun claimPhone(phone: String, uid: String) {
+        try {
+            val docKey = phone.trim()
+            phoneLookup.document(docKey).set(hashMapOf("uid" to uid)).await()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to claim phone in lookup", e)
+        }
+    }
+
+    suspend fun releasePhone(phone: String, uid: String) {
+        try {
+            val docKey = phone.trim()
+            val doc = phoneLookup.document(docKey).get().await()
+            if (doc.exists() && doc.getString("uid") == uid) {
+                phoneLookup.document(docKey).delete().await()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to release phone from lookup", e)
         }
     }
 }

@@ -28,7 +28,7 @@ data class ProfileUiState(
 @HiltViewModel
 class ProfileViewModel
 @Inject
-constructor(private val firebaseAuth: FirebaseAuth, private val userRepository: UserRepository) :
+constructor(private val firebaseAuth: FirebaseAuth, val userRepository: UserRepository) :
         ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -61,7 +61,7 @@ constructor(private val firebaseAuth: FirebaseAuth, private val userRepository: 
                                         editedEmail = profile?.email ?: user.email ?: ""
                                 )
                     },
-                    onFailure = { e ->
+                    onFailure = { _ ->
                         // Show user-friendly error, still populate with Firebase Auth data
                         _uiState.value =
                                 _uiState.value.copy(
@@ -119,8 +119,9 @@ constructor(private val firebaseAuth: FirebaseAuth, private val userRepository: 
                 return@launch
             }
 
-            // Check email uniqueness if changed (gracefully handles permission errors)
-            if (state.editedEmail != state.email && state.editedEmail.isNotBlank()) {
+            // Check email uniqueness if changed
+            val emailChanged = state.editedEmail != state.email && state.editedEmail.isNotBlank()
+            if (emailChanged) {
                 val emailResult = userRepository.isEmailUnique(state.editedEmail, user.uid)
                 emailResult.fold(
                         onSuccess = { isUnique ->
@@ -129,19 +130,23 @@ constructor(private val firebaseAuth: FirebaseAuth, private val userRepository: 
                                         _uiState.value.copy(
                                                 isSaving = false,
                                                 error =
-                                                        "This email is already registered to another account"
+                                                        "A user already exists with this email address"
                                         )
                                 return@launch
                             }
                         },
-                        onFailure = {
-                            // Permission error handled in repository — this shouldn't happen
-                            // but if it does, proceed with save anyway
+                        onFailure = { _ ->
+                            _uiState.value =
+                                    _uiState.value.copy(
+                                            isSaving = false,
+                                            error =
+                                                    "Could not verify email availability. Please try again."
+                                    )
+                            return@launch
                         }
                 )
             }
 
-            // Fix: use correct field names matching UserProfile model
             val updates =
                     hashMapOf<String, Any>(
                             "displayName" to state.editedName,
@@ -151,6 +156,15 @@ constructor(private val firebaseAuth: FirebaseAuth, private val userRepository: 
             val result = userRepository.updateUserProfile(user.uid, updates)
             result.fold(
                     onSuccess = {
+                        // Update email claim in lookup collection
+                        if (emailChanged) {
+                            val oldEmail = state.email
+                            if (!oldEmail.isNullOrBlank()) {
+                                userRepository.releaseEmail(oldEmail, user.uid)
+                            }
+                            userRepository.claimEmail(state.editedEmail, user.uid)
+                        }
+
                         _uiState.value =
                                 _uiState.value.copy(
                                         isSaving = false,

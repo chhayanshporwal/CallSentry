@@ -299,7 +299,8 @@ fun ProfileScreen(navController: NavController, viewModel: ProfileViewModel = hi
                         onVerified = { newPhone ->
                             showPhoneDialog = false
                             viewModel.onPhoneVerified(newPhone)
-                        }
+                        },
+                        userRepository = viewModel.userRepository
                 )
             }
         }
