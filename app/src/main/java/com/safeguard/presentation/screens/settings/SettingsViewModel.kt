@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @HiltViewModel
 class SettingsViewModel
@@ -125,12 +126,19 @@ constructor(
                     userRepository.deleteUserProfile(userId)
                 }
 
-                // Delete Firebase auth account
-                user?.delete()
-
                 // Clear local data
                 clearBlockedLogs()
                 clearWhitelist()
+
+                // Reset settings
+                settingsDataStore.setBlockingEnabled(false)
+                settingsDataStore.setCallBlockingEnabled(false)
+                settingsDataStore.setSmsBlockingEnabled(false)
+                settingsDataStore.setEmergencyBreakthroughEnabled(false)
+                settingsDataStore.setAuthCompleted(false)
+
+                // Delete Firebase auth account last
+                user?.delete()?.await()
             } catch (e: Exception) {
                 android.util.Log.e("SettingsViewModel", "Delete account error", e)
             }
