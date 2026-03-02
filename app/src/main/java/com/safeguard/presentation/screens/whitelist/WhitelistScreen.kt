@@ -1,12 +1,13 @@
 package com.safeguard.presentation.screens.whitelist
 
+import android.content.ContentResolver
 import android.provider.ContactsContract
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Delete
@@ -40,6 +43,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +62,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -65,7 +71,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -73,8 +81,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.safeguard.domain.model.WhitelistContact
 import com.safeguard.presentation.common.simpleVerticalScrollbar
 import com.safeguard.presentation.theme.Primary
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+// Data class for contacts loaded from the device
+data class DeviceContact(val name: String, val phoneNumber: String, val contactId: String)
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
         val uiState by viewModel.uiState.collectAsState()
@@ -82,198 +96,7 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val snackbarHostState = remember { SnackbarHostState() }
-
-        // Permission Launcher
-        val permissionLauncher =
-                rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.RequestPermission()
-                ) { isGranted ->
-                        if (isGranted) {
-                                // We can't easily re-trigger the pick intent here because we need
-                                // the launcher
-                                // from the scope where it was called.
-                                // Simple solution: User clicks "Import" again.
-                                // Better solution: Trigger the contact picker directly here?
-                                // Actually, best flow: Check permission in "onImportContact". If
-                                // granted, launch picker. If not, launch permission.
-                                // If permission callback returns true, launch picker *then*.
-                                // But we can't capture the `contactLauncher` easily if it's defined
-                                // after.
-                                // Let's define contactLauncher first.
-                        }
-                }
-
-        // Contact Picker
-        val contactLauncher =
-                rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.StartActivityForResult()
-                ) { result ->
-                        if (result.resultCode == android.app.Activity.RESULT_OK) {
-                                val contactUri = result.data?.data
-                                if (contactUri != null) {
-                                        try {
-                                                // First get the contact name and ID
-                                                val nameProjection =
-                                                        arrayOf(
-                                                                ContactsContract.Contacts._ID,
-                                                                ContactsContract.Contacts
-                                                                        .DISPLAY_NAME
-                                                        )
-                                                var contactId: String? = null
-                                                var contactName = "Unknown"
-
-                                                context.contentResolver.query(
-                                                                contactUri,
-                                                                nameProjection,
-                                                                null,
-                                                                null,
-                                                                null
-                                                        )
-                                                        ?.use { cursor ->
-                                                                if (cursor.moveToFirst()) {
-                                                                        val idIndex =
-                                                                                cursor.getColumnIndex(
-                                                                                        ContactsContract
-                                                                                                .Contacts
-                                                                                                ._ID
-                                                                                )
-                                                                        val nameIndex =
-                                                                                cursor.getColumnIndex(
-                                                                                        ContactsContract
-                                                                                                .Contacts
-                                                                                                .DISPLAY_NAME
-                                                                                )
-                                                                        contactId =
-                                                                                if (idIndex >= 0)
-                                                                                        cursor.getString(
-                                                                                                idIndex
-                                                                                        )
-                                                                                else null
-                                                                        contactName =
-                                                                                if (nameIndex >= 0)
-                                                                                        cursor.getString(
-                                                                                                nameIndex
-                                                                                        )
-                                                                                else "Unknown"
-                                                                }
-                                                        }
-
-                                                // Now query all phone numbers for this contact
-                                                if (contactId != null) {
-                                                        val phoneProjection =
-                                                                arrayOf(
-                                                                        ContactsContract
-                                                                                .CommonDataKinds
-                                                                                .Phone.NUMBER
-                                                                )
-
-                                                        val numbers =
-                                                                mutableSetOf<String>() // Use Set to
-                                                        // avoid
-                                                        // duplicates
-                                                        context.contentResolver.query(
-                                                                        ContactsContract
-                                                                                .CommonDataKinds
-                                                                                .Phone.CONTENT_URI,
-                                                                        phoneProjection,
-                                                                        "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-                                                                        arrayOf(contactId),
-                                                                        null
-                                                                )
-                                                                ?.use { cursor ->
-                                                                        while (cursor.moveToNext()) {
-                                                                                val numberIndex =
-                                                                                        cursor.getColumnIndex(
-                                                                                                ContactsContract
-                                                                                                        .CommonDataKinds
-                                                                                                        .Phone
-                                                                                                        .NUMBER
-                                                                                        )
-                                                                                val number =
-                                                                                        if (numberIndex >=
-                                                                                                        0
-                                                                                        )
-                                                                                                cursor.getString(
-                                                                                                        numberIndex
-                                                                                                )
-                                                                                        else ""
-
-                                                                                if (number.isNotBlank()
-                                                                                ) {
-                                                                                        numbers.add(
-                                                                                                number
-                                                                                        )
-                                                                                }
-                                                                        }
-                                                                }
-
-                                                        if (numbers.isEmpty()) {
-                                                                scope.launch {
-                                                                        snackbarHostState
-                                                                                .showSnackbar(
-                                                                                        "No phone numbers found for this contact",
-                                                                                        duration =
-                                                                                                SnackbarDuration
-                                                                                                        .Short
-                                                                                )
-                                                                }
-                                                        } else {
-                                                                // Automatically add ALL numbers
-                                                                numbers.forEach { number ->
-                                                                        viewModel.addContact(
-                                                                                number,
-                                                                                contactName
-                                                                        )
-                                                                }
-                                                                scope.launch {
-                                                                        snackbarHostState
-                                                                                .showSnackbar(
-                                                                                        "Added ${numbers.size} number(s) for $contactName",
-                                                                                        duration =
-                                                                                                SnackbarDuration
-                                                                                                        .Short
-                                                                                )
-                                                                }
-                                                        }
-                                                }
-                                        } catch (e: Exception) {
-                                                e.printStackTrace()
-                                                scope.launch {
-                                                        snackbarHostState.showSnackbar(
-                                                                "Failed to load contact",
-                                                                duration = SnackbarDuration.Short
-                                                        )
-                                                }
-                                        }
-                                }
-                        }
-                }
-
-        // We need the permission launcher to trigger the contact launcher if granted
-        val permissionLauncherWithAction =
-                rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.RequestPermission()
-                ) { isGranted ->
-                        if (isGranted) {
-                                try {
-                                        val intent =
-                                                android.content.Intent(
-                                                        android.content.Intent.ACTION_PICK,
-                                                        android.provider.ContactsContract
-                                                                .CommonDataKinds.Phone.CONTENT_URI
-                                                )
-                                        contactLauncher.launch(intent)
-                                } catch (e: Exception) {
-                                        // Handle potential error
-                                }
-                        } else {
-                                scope.launch {
-                                        snackbarHostState.showSnackbar(
-                                                "Permission denied. Cannot import contacts."
-                                        )
-                                }
-                        }
-                }
+        val haptic = LocalHapticFeedback.current
 
         Scaffold(
                 floatingActionButton = {
@@ -291,13 +114,6 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
                 snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                 contentWindowInsets = WindowInsets(0.dp)
         ) { paddingValues ->
-                // Show snackbar on delete
-                LaunchedEffect(uiState.contacts) {
-                        // This is a simplified way to show feedback. ideally, ViewModel should emit
-                        // specific events.
-                        // For now, we rely on the list changing as a trigger, but only direct user
-                        // action triggers the snackbar above.
-                }
                 Column(
                         modifier =
                                 Modifier.fillMaxSize()
@@ -356,6 +172,35 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
                                                                 viewModel.showDeleteConfirmation(
                                                                         contact
                                                                 )
+                                                        },
+                                                        onLongPress = {
+                                                                haptic.performHapticFeedback(
+                                                                        HapticFeedbackType.LongPress
+                                                                )
+                                                                viewModel.cycleFilterMode(contact)
+                                                                scope.launch {
+                                                                        val newMode =
+                                                                                when {
+                                                                                        contact.allowCalls &&
+                                                                                                contact.allowSms ->
+                                                                                                "Calls Only"
+                                                                                        contact.allowCalls &&
+                                                                                                !contact.allowSms ->
+                                                                                                "Messages Only"
+                                                                                        else ->
+                                                                                                "Active"
+                                                                                }
+                                                                        snackbarHostState
+                                                                                .currentSnackbarData
+                                                                                ?.dismiss()
+                                                                        snackbarHostState
+                                                                                .showSnackbar(
+                                                                                        "${contact.displayName ?: contact.phoneNumber}: $newMode",
+                                                                                        duration =
+                                                                                                SnackbarDuration
+                                                                                                        .Short
+                                                                                )
+                                                                }
                                                         }
                                                 )
                                         }
@@ -374,7 +219,8 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
                                         }
                                 },
                                 onImportContact = {
-                                        // Check permission
+                                        viewModel.hideAddDialog()
+                                        // Check permission first
                                         val hasPermission =
                                                 androidx.core.content.ContextCompat
                                                         .checkSelfPermission(
@@ -386,27 +232,39 @@ fun WhitelistScreen(viewModel: WhitelistViewModel = hiltViewModel()) {
                                                                 .PERMISSION_GRANTED
 
                                         if (hasPermission) {
-                                                try {
-                                                        val intent =
-                                                                android.content.Intent(
-                                                                        android.content.Intent
-                                                                                .ACTION_PICK,
-                                                                        android.provider
-                                                                                .ContactsContract
-                                                                                .Contacts
-                                                                                .CONTENT_URI
-                                                                )
-                                                        contactLauncher.launch(intent)
-                                                } catch (e: Exception) {
-                                                        scope.launch {
-                                                                snackbarHostState.showSnackbar(
-                                                                        "Unable to open contacts"
-                                                                )
-                                                        }
-                                                }
+                                                viewModel.showContactPicker()
                                         } else {
-                                                permissionLauncherWithAction.launch(
-                                                        android.Manifest.permission.READ_CONTACTS
+                                                // For simplicity, show a message. In a real app,
+                                                // you'd
+                                                // launch a permission request first.
+                                                scope.launch {
+                                                        snackbarHostState.showSnackbar(
+                                                                "Please grant contacts permission in app settings"
+                                                        )
+                                                }
+                                        }
+                                }
+                        )
+                }
+
+                // Multi-select Contact Picker
+                if (uiState.showContactPicker) {
+                        ContactPickerDialog(
+                                contentResolver = context.contentResolver,
+                                onDismiss = { viewModel.hideContactPicker() },
+                                onImport = { selectedContacts ->
+                                        val whitelistContacts =
+                                                selectedContacts.map { dc ->
+                                                        WhitelistContact(
+                                                                phoneNumber = dc.phoneNumber,
+                                                                displayName = dc.name
+                                                        )
+                                                }
+                                        viewModel.addContactsBatch(whitelistContacts)
+                                        scope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                        "Added ${selectedContacts.size} contact(s)",
+                                                        duration = SnackbarDuration.Short
                                                 )
                                         }
                                 }
@@ -470,15 +328,42 @@ fun SearchBar(query: String, onQueryChange: (String) -> Unit) {
         )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ContactCard(
         contact: WhitelistContact,
         onToggleCalls: () -> Unit,
         onToggleSms: () -> Unit,
-        onDelete: () -> Unit
+        onDelete: () -> Unit,
+        onLongPress: () -> Unit
 ) {
+        // Determine status text and color
+        val statusText: String
+        val statusColor: Color
+
+        when {
+                contact.allowCalls && contact.allowSms -> {
+                        statusText = "Active"
+                        statusColor = Color(0xFF4CAF50) // Green
+                }
+                contact.allowCalls && !contact.allowSms -> {
+                        statusText = "Calls Only"
+                        statusColor = Color(0xFF2196F3) // Blue
+                }
+                !contact.allowCalls && contact.allowSms -> {
+                        statusText = "Messages Only"
+                        statusColor = Color(0xFFFF9800) // Orange
+                }
+                else -> {
+                        statusText = "Inactive"
+                        statusColor = MaterialTheme.colorScheme.error
+                }
+        }
+
         Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                        Modifier.fillMaxWidth()
+                                .combinedClickable(onClick = {}, onLongClick = onLongPress),
                 shape = RoundedCornerShape(16.dp),
                 colors =
                         CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -520,6 +405,14 @@ fun ContactCard(
                                         text = contact.phoneNumber,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                // Status label
+                                Text(
+                                        text = statusText,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = statusColor,
+                                        modifier = Modifier.padding(top = 2.dp)
                                 )
                         }
 
@@ -734,6 +627,322 @@ fun AddContactDialog(
                 },
                 dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
         )
+}
+
+// ============================================================
+// Multi-Select Contact Picker Dialog
+// ============================================================
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun ContactPickerDialog(
+        contentResolver: ContentResolver,
+        onDismiss: () -> Unit,
+        onImport: (List<DeviceContact>) -> Unit
+) {
+        var isLoading by remember { mutableStateOf(true) }
+        var searchQuery by remember { mutableStateOf("") }
+        val allContacts = remember { mutableStateListOf<DeviceContact>() }
+        val selectedContacts = remember { mutableStateListOf<DeviceContact>() }
+
+        // Load contacts from device
+        val scope = rememberCoroutineScope()
+        LaunchedEffect(Unit) {
+                scope.launch {
+                        val loaded =
+                                withContext(Dispatchers.IO) { loadDeviceContacts(contentResolver) }
+                        allContacts.addAll(loaded)
+                        isLoading = false
+                }
+        }
+
+        val filteredContacts =
+                if (searchQuery.isBlank()) {
+                        allContacts
+                } else {
+                        allContacts.filter {
+                                it.name.contains(searchQuery, ignoreCase = true) ||
+                                        it.phoneNumber.contains(searchQuery)
+                        }
+                }
+
+        val allSelected =
+                filteredContacts.isNotEmpty() &&
+                        filteredContacts.all { fc ->
+                                selectedContacts.any { it.phoneNumber == fc.phoneNumber }
+                        }
+
+        AlertDialog(
+                onDismissRequest = onDismiss,
+                title = {
+                        Column {
+                                Text("Select Contacts")
+                                Text(
+                                        text = "${selectedContacts.size} selected",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                        }
+                },
+                text = {
+                        Column(modifier = Modifier.fillMaxWidth().height(400.dp)) {
+                                // Search
+                                OutlinedTextField(
+                                        value = searchQuery,
+                                        onValueChange = { searchQuery = it },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        placeholder = { Text("Search...") },
+                                        singleLine = true,
+                                        leadingIcon = {
+                                                Icon(
+                                                        Icons.Default.Search,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(20.dp)
+                                                )
+                                        },
+                                        trailingIcon = {
+                                                if (searchQuery.isNotEmpty()) {
+                                                        IconButton(onClick = { searchQuery = "" }) {
+                                                                Icon(
+                                                                        Icons.Default.Close,
+                                                                        contentDescription =
+                                                                                "Clear",
+                                                                        modifier =
+                                                                                Modifier.size(20.dp)
+                                                                )
+                                                        }
+                                                }
+                                        }
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Select All row
+                                Row(
+                                        modifier =
+                                                Modifier.fillMaxWidth()
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(
+                                                                MaterialTheme.colorScheme
+                                                                        .surfaceVariant.copy(
+                                                                        alpha = 0.5f
+                                                                )
+                                                        )
+                                                        .combinedClickable(
+                                                                onClick = {
+                                                                        if (allSelected) {
+                                                                                selectedContacts
+                                                                                        .clear()
+                                                                        } else {
+                                                                                selectedContacts
+                                                                                        .clear()
+                                                                                selectedContacts
+                                                                                        .addAll(
+                                                                                                filteredContacts
+                                                                                        )
+                                                                        }
+                                                                },
+                                                                onLongClick = {}
+                                                        )
+                                                        .padding(
+                                                                horizontal = 12.dp,
+                                                                vertical = 10.dp
+                                                        ),
+                                        verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                        Icon(
+                                                imageVector =
+                                                        if (allSelected) Icons.Default.CheckBox
+                                                        else Icons.Default.CheckBoxOutlineBlank,
+                                                contentDescription = "Select All",
+                                                tint =
+                                                        if (allSelected) Primary
+                                                        else
+                                                                MaterialTheme.colorScheme
+                                                                        .onSurfaceVariant,
+                                                modifier = Modifier.size(22.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                                text = "Select All (${filteredContacts.size})",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium
+                                        )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                if (isLoading) {
+                                        Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                        ) { CircularProgressIndicator(color = Primary) }
+                                } else if (filteredContacts.isEmpty()) {
+                                        Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                        ) {
+                                                Text(
+                                                        text = "No contacts found",
+                                                        color =
+                                                                MaterialTheme.colorScheme
+                                                                        .onSurfaceVariant
+                                                )
+                                        }
+                                } else {
+                                        LazyColumn(
+                                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                                items(
+                                                        filteredContacts,
+                                                        key = {
+                                                                "${it.contactId}_${it.phoneNumber}"
+                                                        }
+                                                ) { dc ->
+                                                        val isSelected =
+                                                                selectedContacts.any {
+                                                                        it.phoneNumber ==
+                                                                                dc.phoneNumber
+                                                                }
+                                                        DeviceContactRow(
+                                                                contact = dc,
+                                                                isSelected = isSelected,
+                                                                onToggle = {
+                                                                        if (isSelected) {
+                                                                                selectedContacts
+                                                                                        .removeAll {
+                                                                                                it.phoneNumber ==
+                                                                                                        dc.phoneNumber
+                                                                                        }
+                                                                        } else {
+                                                                                selectedContacts
+                                                                                        .add(dc)
+                                                                        }
+                                                                }
+                                                        )
+                                                }
+                                        }
+                                }
+                        }
+                },
+                confirmButton = {
+                        TextButton(
+                                onClick = { onImport(selectedContacts.toList()) },
+                                enabled = selectedContacts.isNotEmpty()
+                        ) { Text("Import (${selectedContacts.size})") }
+                },
+                dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun DeviceContactRow(contact: DeviceContact, isSelected: Boolean, onToggle: () -> Unit) {
+        Row(
+                modifier =
+                        Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                        if (isSelected) Primary.copy(alpha = 0.08f)
+                                        else Color.Transparent
+                                )
+                                .combinedClickable(onClick = onToggle, onLongClick = {})
+                                .padding(horizontal = 8.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+        ) {
+                // Avatar
+                Box(
+                        modifier =
+                                Modifier.size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Primary.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                ) {
+                        Text(
+                                text = contact.name.firstOrNull()?.uppercase() ?: "?",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Primary
+                        )
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                                text = contact.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                                text = contact.phoneNumber,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                }
+
+                Checkbox(checked = isSelected, onCheckedChange = { onToggle() })
+        }
+}
+
+/**
+ * Loads all contacts with phone numbers from the device. Must be called from a background thread.
+ */
+fun loadDeviceContacts(contentResolver: ContentResolver): List<DeviceContact> {
+        val contactsMap = mutableMapOf<String, DeviceContact>()
+
+        val projection =
+                arrayOf(
+                        ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+                        ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                        ContactsContract.CommonDataKinds.Phone.NUMBER
+                )
+
+        contentResolver.query(
+                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                        projection,
+                        null,
+                        null,
+                        "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} ASC"
+                )
+                ?.use { cursor ->
+                        val idIndex =
+                                cursor.getColumnIndex(
+                                        ContactsContract.CommonDataKinds.Phone.CONTACT_ID
+                                )
+                        val nameIndex =
+                                cursor.getColumnIndex(
+                                        ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+                                )
+                        val numberIndex =
+                                cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+
+                        while (cursor.moveToNext()) {
+                                val id = if (idIndex >= 0) cursor.getString(idIndex) else continue
+                                val name =
+                                        if (nameIndex >= 0) cursor.getString(nameIndex) ?: "Unknown"
+                                        else "Unknown"
+                                val number =
+                                        if (numberIndex >= 0) cursor.getString(numberIndex) ?: ""
+                                        else ""
+
+                                if (number.isNotBlank()) {
+                                        // Use cleaned number as key to deduplicate
+                                        val cleanNumber = number.replace(Regex("[\\s\\-()]"), "")
+                                        if (!contactsMap.containsKey(cleanNumber)) {
+                                                contactsMap[cleanNumber] =
+                                                        DeviceContact(
+                                                                name = name,
+                                                                phoneNumber = number.trim(),
+                                                                contactId = id
+                                                        )
+                                        }
+                                }
+                        }
+                }
+
+        return contactsMap.values.toList()
 }
 
 @Composable

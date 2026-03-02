@@ -110,6 +110,35 @@ constructor(
         }
     }
 
+    /**
+     * Cycles filter mode: Both → Calls Only → Messages Only → Both
+     */
+    fun cycleFilterMode(contact: WhitelistContact) {
+        viewModelScope.launch {
+            val updated = when {
+                contact.allowCalls && contact.allowSms -> contact.copy(allowCalls = true, allowSms = false)   // Both → Calls Only
+                contact.allowCalls && !contact.allowSms -> contact.copy(allowCalls = false, allowSms = true)  // Calls Only → Messages Only
+                else -> contact.copy(allowCalls = true, allowSms = true)                                      // Messages Only → Both
+            }
+            whitelistRepository.updateContact(updated)
+        }
+    }
+
+    fun addContactsBatch(contacts: List<WhitelistContact>) {
+        viewModelScope.launch {
+            whitelistRepository.addContacts(contacts)
+            hideContactPicker()
+        }
+    }
+
+    fun showContactPicker() {
+        _uiState.update { it.copy(showContactPicker = true) }
+    }
+
+    fun hideContactPicker() {
+        _uiState.update { it.copy(showContactPicker = false) }
+    }
+
     fun showDeleteConfirmation(contact: WhitelistContact) {
         _uiState.update { it.copy(showDeleteConfirmation = contact) }
     }

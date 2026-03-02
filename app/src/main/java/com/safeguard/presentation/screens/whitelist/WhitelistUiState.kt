@@ -7,5 +7,6 @@ data class WhitelistUiState(
         val searchQuery: String = "",
         val isLoading: Boolean = true,
         val showAddDialog: Boolean = false,
+        val showContactPicker: Boolean = false,
         val showDeleteConfirmation: WhitelistContact? = null
 )
