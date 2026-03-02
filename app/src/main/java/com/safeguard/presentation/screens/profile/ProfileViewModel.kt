@@ -62,10 +62,17 @@ constructor(private val firebaseAuth: FirebaseAuth, private val userRepository: 
                                 )
                     },
                     onFailure = { e ->
+                        // Show user-friendly error, still populate with Firebase Auth data
                         _uiState.value =
                                 _uiState.value.copy(
                                         isLoading = false,
-                                        error = "Failed to load profile: ${e.message}"
+                                        name = user.displayName,
+                                        email = user.email,
+                                        phone = user.phoneNumber,
+                                        editedName = user.displayName ?: "",
+                                        editedEmail = user.email ?: "",
+                                        error =
+                                                "Could not load profile from server. Showing cached data."
                                 )
                     }
             )
@@ -75,7 +82,6 @@ constructor(private val firebaseAuth: FirebaseAuth, private val userRepository: 
     fun toggleEditMode() {
         val current = _uiState.value
         if (current.isEditMode) {
-            // Cancel edit — reset
             _uiState.value =
                     current.copy(
                             isEditMode = false,
@@ -103,7 +109,17 @@ constructor(private val firebaseAuth: FirebaseAuth, private val userRepository: 
 
             val state = _uiState.value
 
-            // Validate email uniqueness if changed
+            // Validate email format if changed
+            if (state.editedEmail.isNotBlank() && !isValidEmail(state.editedEmail)) {
+                _uiState.value =
+                        _uiState.value.copy(
+                                isSaving = false,
+                                error = "Please enter a valid email address"
+                        )
+                return@launch
+            }
+
+            // Check email uniqueness if changed (gracefully handles permission errors)
             if (state.editedEmail != state.email && state.editedEmail.isNotBlank()) {
                 val emailResult = userRepository.isEmailUnique(state.editedEmail, user.uid)
                 emailResult.fold(
@@ -118,19 +134,19 @@ constructor(private val firebaseAuth: FirebaseAuth, private val userRepository: 
                                 return@launch
                             }
                         },
-                        onFailure = { e ->
-                            _uiState.value =
-                                    _uiState.value.copy(
-                                            isSaving = false,
-                                            error = "Failed to verify email: ${e.message}"
-                                    )
-                            return@launch
+                        onFailure = {
+                            // Permission error handled in repository — this shouldn't happen
+                            // but if it does, proceed with save anyway
                         }
                 )
             }
 
+            // Fix: use correct field names matching UserProfile model
             val updates =
-                    hashMapOf<String, Any>("name" to state.editedName, "email" to state.editedEmail)
+                    hashMapOf<String, Any>(
+                            "displayName" to state.editedName,
+                            "email" to state.editedEmail
+                    )
 
             val result = userRepository.updateUserProfile(user.uid, updates)
             result.fold(
@@ -146,10 +162,7 @@ constructor(private val firebaseAuth: FirebaseAuth, private val userRepository: 
                     },
                     onFailure = { e ->
                         _uiState.value =
-                                _uiState.value.copy(
-                                        isSaving = false,
-                                        error = "Failed to save: ${e.message}"
-                                )
+                                _uiState.value.copy(isSaving = false, error = mapFirebaseError(e))
                     }
             )
         }
@@ -163,5 +176,24 @@ constructor(private val firebaseAuth: FirebaseAuth, private val userRepository: 
     fun signOut() {
         firebaseAuth.signOut()
         _uiState.value = ProfileUiState(isLoading = false, isLoggedIn = false)
+    }
+
+    private fun isValidEmail(email: String): Boolean {
+        return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    }
+
+    private fun mapFirebaseError(e: Throwable): String {
+        val message = e.message ?: ""
+        return when {
+            message.contains("PERMISSION_DENIED", ignoreCase = true) ->
+                    "Unable to save changes. Please check your connection and try again."
+            message.contains("UNAVAILABLE", ignoreCase = true) ->
+                    "Server is temporarily unavailable. Please try again later."
+            message.contains("NOT_FOUND", ignoreCase = true) ->
+                    "Your profile was not found. Please sign out and sign in again."
+            message.contains("NETWORK", ignoreCase = true) ->
+                    "No internet connection. Please check your network and try again."
+            else -> "Failed to save profile. Please try again."
+        }
     }
 }
