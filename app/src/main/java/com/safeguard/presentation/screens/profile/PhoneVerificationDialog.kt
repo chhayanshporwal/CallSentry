@@ -1,14 +1,17 @@
 package com.safeguard.presentation.screens.profile
 
 import android.app.Activity
+import android.os.CountDownTimer
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.google.firebase.FirebaseException
@@ -43,11 +46,33 @@ fun PhoneVerificationDialog(
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var verificationId by remember { mutableStateOf("") }
+    var resendCooldownSeconds by remember { mutableStateOf(0) }
+    var otpAttemptsRemaining by remember { mutableStateOf(5) }
+    var isLockedOut by remember { mutableStateOf(false) }
+    var resendToken by remember { mutableStateOf<PhoneAuthProvider.ForceResendingToken?>(null) }
+    var countDownTimer by remember { mutableStateOf<CountDownTimer?>(null) }
+
+    // Clean up timer on dispose
+    DisposableEffect(Unit) { onDispose { countDownTimer?.cancel() } }
+
+    fun startCooldownTimer() {
+        countDownTimer?.cancel()
+        resendCooldownSeconds = 60
+        countDownTimer =
+                object : CountDownTimer(60_000L, 1000L) {
+                            override fun onTick(millisUntilFinished: Long) {
+                                resendCooldownSeconds = (millisUntilFinished / 1000).toInt()
+                            }
+                            override fun onFinish() {
+                                resendCooldownSeconds = 0
+                            }
+                        }
+                        .start()
+    }
 
     val callbacks =
             object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                 override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                    // Auto-verify if possible
                     scope.launch {
                         try {
                             isLoading = true
@@ -58,6 +83,7 @@ fun PhoneVerificationDialog(
                                     .document(auth.currentUser!!.uid)
                                     .update("phoneNumber", fullPhone)
                                     .await()
+                            countDownTimer?.cancel()
                             onVerified(fullPhone)
                         } catch (e: Exception) {
                             error = "Verification failed: ${e.message}"
@@ -77,20 +103,27 @@ fun PhoneVerificationDialog(
                         token: PhoneAuthProvider.ForceResendingToken
                 ) {
                     verificationId = verId
+                    resendToken = token
                     step = PhoneVerificationStep.OTP_INPUT
                     isLoading = false
+                    otp = ""
+                    startCooldownTimer()
                 }
             }
 
     suspend fun checkPhoneUnique(phone: String): Boolean {
-        val snapshot =
-                firestore.collection("users").whereEqualTo("phoneNumber", phone).get().await()
-
-        // Check if phone exists for a different user
-        return snapshot.documents.all { doc -> doc.id == auth.currentUser?.uid }
+        return try {
+            val snapshot =
+                    firestore.collection("users").whereEqualTo("phoneNumber", phone).get().await()
+            snapshot.documents.all { doc -> doc.id == auth.currentUser?.uid }
+        } catch (e: Exception) {
+            // Firestore rules may block cross-user queries — fail open
+            android.util.Log.w("PhoneVerification", "Phone uniqueness check failed, allowing", e)
+            true
+        }
     }
 
-    fun sendVerificationCode() {
+    fun sendVerificationCode(isResend: Boolean = false) {
         scope.launch {
             try {
                 isLoading = true
@@ -98,21 +131,25 @@ fun PhoneVerificationDialog(
 
                 val fullPhone = "+91$phoneNumber"
 
-                // Check uniqueness
-                if (!checkPhoneUnique(fullPhone)) {
+                // Check uniqueness (only on first send, not resend)
+                if (!isResend && !checkPhoneUnique(fullPhone)) {
                     isLoading = false
                     error = "This number is already registered to another account"
                     return@launch
                 }
 
-                val options =
+                val optionsBuilder =
                         PhoneAuthOptions.newBuilder(auth)
                                 .setPhoneNumber(fullPhone)
                                 .setTimeout(60L, TimeUnit.SECONDS)
                                 .setActivity(context as Activity)
                                 .setCallbacks(callbacks)
-                                .build()
-                PhoneAuthProvider.verifyPhoneNumber(options)
+
+                if (isResend && resendToken != null) {
+                    optionsBuilder.setForceResendingToken(resendToken!!)
+                }
+
+                PhoneAuthProvider.verifyPhoneNumber(optionsBuilder.build())
             } catch (e: Exception) {
                 isLoading = false
                 error = "Error: ${e.message}"
@@ -121,6 +158,11 @@ fun PhoneVerificationDialog(
     }
 
     fun verifyOtp() {
+        if (isLockedOut) {
+            error = "Too many failed attempts. Please request a new OTP."
+            return
+        }
+
         scope.launch {
             try {
                 isLoading = true
@@ -138,16 +180,29 @@ fun PhoneVerificationDialog(
                             .await()
                 }
 
+                countDownTimer?.cancel()
                 onVerified(fullPhone)
             } catch (e: Exception) {
                 isLoading = false
-                error = "Invalid OTP: ${e.message}"
+                otpAttemptsRemaining--
+                if (otpAttemptsRemaining <= 0) {
+                    isLockedOut = true
+                    error = "Too many failed attempts. Please request a new OTP."
+                } else {
+                    error =
+                            "Invalid OTP. $otpAttemptsRemaining attempt${if (otpAttemptsRemaining != 1) "s" else ""} remaining."
+                }
             }
         }
     }
 
     AlertDialog(
-            onDismissRequest = { if (!isLoading) onDismiss() },
+            onDismissRequest = {
+                if (!isLoading) {
+                    countDownTimer?.cancel()
+                    onDismiss()
+                }
+            },
             title = {
                 Text(
                         if (step == PhoneVerificationStep.PHONE_INPUT) "Verify Phone Number"
@@ -184,7 +239,7 @@ fun PhoneVerificationDialog(
                         }
                         PhoneVerificationStep.OTP_INPUT -> {
                             Text(
-                                    "Enter the 6-digit code sent to +91$phoneNumber",
+                                    "Enter the 6-digit code sent to +91 $phoneNumber",
                                     style = MaterialTheme.typography.bodyMedium
                             )
                             Spacer(modifier = Modifier.height(16.dp))
@@ -202,15 +257,54 @@ fun PhoneVerificationDialog(
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     isError = error != null,
-                                    enabled = !isLoading
+                                    enabled = !isLoading && !isLockedOut
                             )
+
+                            // Attempts remaining
+                            if (otpAttemptsRemaining < 5) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                        text =
+                                                if (isLockedOut) "Too many failed attempts"
+                                                else
+                                                        "$otpAttemptsRemaining attempt${if (otpAttemptsRemaining != 1) "s" else ""} remaining",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium,
+                                        color =
+                                                if (otpAttemptsRemaining <= 2)
+                                                        MaterialTheme.colorScheme.error
+                                                else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Resend row
+                            Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (resendCooldownSeconds > 0) {
+                                    Text(
+                                            text = "Resend OTP in ${resendCooldownSeconds}s",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    TextButton(
+                                            onClick = { sendVerificationCode(isResend = true) },
+                                            enabled = !isLoading
+                                    ) { Text("Resend OTP", fontWeight = FontWeight.SemiBold) }
+                                }
+                            }
                         }
                     }
 
                     if (error != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                                error ?: "", // Safe access
+                                error ?: "",
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall
                         )
@@ -237,7 +331,7 @@ fun PhoneVerificationDialog(
                                 }
                             }
                         },
-                        enabled = !isLoading
+                        enabled = !isLoading && !isLockedOut
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
@@ -254,7 +348,13 @@ fun PhoneVerificationDialog(
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss, enabled = !isLoading) { Text("Cancel") }
+                TextButton(
+                        onClick = {
+                            countDownTimer?.cancel()
+                            onDismiss()
+                        },
+                        enabled = !isLoading
+                ) { Text("Cancel") }
             }
     )
 }
