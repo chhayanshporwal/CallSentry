@@ -70,6 +70,30 @@ fun PhoneVerificationDialog(
                         .start()
     }
 
+    fun mapVerificationError(e: Exception): String {
+        val message = e.message ?: ""
+        return when {
+            message.contains("blocked", ignoreCase = true) ||
+                    message.contains("unusual activity", ignoreCase = true) ->
+                    "Too many attempts. Please try again after some time."
+            message.contains("TOO_MANY_REQUESTS", ignoreCase = true) ->
+                    "Too many requests. Please wait a few minutes and try again."
+            message.contains("QUOTA_EXCEEDED", ignoreCase = true) ->
+                    "Service temporarily unavailable. Please try again later."
+            message.contains("INVALID_PHONE_NUMBER", ignoreCase = true) ->
+                    "Invalid phone number. Please check and try again."
+            message.contains("NETWORK", ignoreCase = true) ->
+                    "No internet connection. Please check your network."
+            message.contains("SESSION_EXPIRED", ignoreCase = true) ->
+                    "Session expired. Please request a new OTP."
+            message.contains("BILLING_NOT_ENABLED", ignoreCase = true) ->
+                    "Phone verification is not available at this time."
+            message.contains("credential", ignoreCase = true) ->
+                    "Verification failed. Please try again."
+            else -> "Something went wrong. Please try again."
+        }
+    }
+
     val callbacks =
             object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                 override fun onVerificationCompleted(credential: PhoneAuthCredential) {
@@ -86,7 +110,7 @@ fun PhoneVerificationDialog(
                             countDownTimer?.cancel()
                             onVerified(fullPhone)
                         } catch (e: Exception) {
-                            error = "Verification failed: ${e.message}"
+                            error = mapVerificationError(e)
                         } finally {
                             isLoading = false
                         }
@@ -95,7 +119,7 @@ fun PhoneVerificationDialog(
 
                 override fun onVerificationFailed(e: FirebaseException) {
                     isLoading = false
-                    error = "Verification failed: ${e.message}"
+                    error = mapVerificationError(e)
                 }
 
                 override fun onCodeSent(
@@ -111,18 +135,6 @@ fun PhoneVerificationDialog(
                 }
             }
 
-    suspend fun checkPhoneUnique(phone: String): Boolean {
-        return try {
-            val snapshot =
-                    firestore.collection("users").whereEqualTo("phoneNumber", phone).get().await()
-            snapshot.documents.all { doc -> doc.id == auth.currentUser?.uid }
-        } catch (e: Exception) {
-            // Firestore rules may block cross-user queries — fail open
-            android.util.Log.w("PhoneVerification", "Phone uniqueness check failed, allowing", e)
-            true
-        }
-    }
-
     fun sendVerificationCode(isResend: Boolean = false) {
         scope.launch {
             try {
@@ -130,13 +142,6 @@ fun PhoneVerificationDialog(
                 error = null
 
                 val fullPhone = "+91$phoneNumber"
-
-                // Check uniqueness (only on first send, not resend)
-                if (!isResend && !checkPhoneUnique(fullPhone)) {
-                    isLoading = false
-                    error = "This number is already registered to another account"
-                    return@launch
-                }
 
                 val optionsBuilder =
                         PhoneAuthOptions.newBuilder(auth)
@@ -152,7 +157,7 @@ fun PhoneVerificationDialog(
                 PhoneAuthProvider.verifyPhoneNumber(optionsBuilder.build())
             } catch (e: Exception) {
                 isLoading = false
-                error = "Error: ${e.message}"
+                error = mapVerificationError(e)
             }
         }
     }

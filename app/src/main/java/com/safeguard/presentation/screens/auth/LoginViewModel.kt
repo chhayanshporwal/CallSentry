@@ -10,7 +10,6 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
 import com.google.firebase.auth.PhoneAuthProvider
-import com.google.firebase.firestore.FirebaseFirestore
 import com.safeguard.data.preferences.SettingsDataStore
 import com.safeguard.data.repository.UserRepository
 import com.safeguard.domain.model.UserProfile
@@ -45,7 +44,6 @@ constructor(
 ) : ViewModel() {
 
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -97,31 +95,7 @@ constructor(
         val fullPhoneNumber = "+91$phoneNumber"
 
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-
-        // Check if phone number is already linked to another account
-        viewModelScope.launch {
-            try {
-                val snapshot =
-                        firestore
-                                .collection("users")
-                                .whereEqualTo("phoneNumber", fullPhoneNumber)
-                                .get()
-                                .await()
-
-                val existingUser = snapshot.documents.firstOrNull()
-                if (existingUser != null) {
-                    // Phone exists — but that's okay for login (they're signing IN with their
-                    // phone)
-                    // Only block if trying to LINK from profile. For login, allow it.
-                }
-
-                // Proceed with sending verification code
-                sendFirebaseVerificationCode(activity, fullPhoneNumber, false)
-            } catch (e: Exception) {
-                // Network error checking — proceed anyway
-                sendFirebaseVerificationCode(activity, fullPhoneNumber, false)
-            }
-        }
+        sendFirebaseVerificationCode(activity, fullPhoneNumber, false)
     }
 
     fun resendOtp(activity: Activity) {
@@ -300,6 +274,11 @@ constructor(
     private fun mapFirebaseAuthError(e: Exception): String {
         val message = e.message ?: ""
         return when {
+            message.contains("blocked", ignoreCase = true) ||
+                    message.contains("unusual activity", ignoreCase = true) ->
+                    "Too many attempts. Please try again after some time."
+            message.contains("BLOCKING_FUNCTION", ignoreCase = true) ->
+                    "Authentication is temporarily blocked. Please try again later."
             message.contains("INVALID_VERIFICATION_CODE", ignoreCase = true) ->
                     "The verification code is incorrect. Please try again."
             message.contains("SESSION_EXPIRED", ignoreCase = true) ->
