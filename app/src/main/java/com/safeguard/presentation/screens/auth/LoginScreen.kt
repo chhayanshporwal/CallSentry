@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -89,7 +90,11 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
             Spacer(modifier = Modifier.height(16.dp))
 
             if (!uiState.isCodeSent) {
-                // Google Sign In Button - Industry Standard Design
+                // ========================
+                // Phone Input Step
+                // ========================
+
+                // Google Sign In Button
                 Button(
                         onClick = {
                             if (!uiState.isLoading) {
@@ -108,7 +113,6 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
                                                 .requestEmail()
                                                 .build()
                                 val googleSignInClient = GoogleSignIn.getClient(context, gso)
-                                // Sign out to force fresh account selection
                                 googleSignInClient.signOut()
                                 googleSignInLauncher.launch(googleSignInClient.signInIntent)
                             }
@@ -137,7 +141,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
                         CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp,
-                                color = Color(0xFF4285F4) // Google Blue
+                                color = Color(0xFF4285F4)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
@@ -168,13 +172,12 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
                 OutlinedTextField(
                         value = uiState.phoneNumber,
                         onValueChange = { input ->
-                            // Only allow digits, max 10 characters
                             if (input.all { it.isDigit() } && input.length <= 10) {
                                 viewModel.onPhoneNumberChange(input)
                             }
                         },
                         label = { Text("Phone Number") },
-                        prefix = { Text("+91 ") }, // Fixed prefix
+                        prefix = { Text("+91 ") },
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                         placeholder = { Text("9999999999") },
                         modifier = Modifier.fillMaxWidth(),
@@ -191,7 +194,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
                         },
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                         shape = RoundedCornerShape(12.dp),
-                        enabled = !uiState.isLoading && uiState.phoneNumber.isNotBlank()
+                        enabled = !uiState.isLoading && uiState.phoneNumber.length == 10
                 ) {
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
@@ -203,22 +206,56 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
                     }
                 }
             } else {
+                // ========================
+                // OTP Verification Step
+                // ========================
+
+                // Show which number OTP was sent to
+                Text(
+                        text = "OTP sent to +91 ${uiState.phoneNumber}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 OutlinedTextField(
                         value = uiState.otp,
                         onValueChange = viewModel::onOtpChange,
                         label = { Text("Verification Code") },
                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        placeholder = { Text("123456") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        singleLine = true,
+                        enabled = !uiState.isLockedOut
                 )
+
+                // Attempts remaining indicator
+                if (uiState.otpAttemptsRemaining < 5) {
+                    Text(
+                            text =
+                                    if (uiState.isLockedOut) "Too many failed attempts"
+                                    else
+                                            "${uiState.otpAttemptsRemaining} attempt${if (uiState.otpAttemptsRemaining != 1) "s" else ""} remaining",
+                            style = MaterialTheme.typography.bodySmall,
+                            color =
+                                    if (uiState.otpAttemptsRemaining <= 2)
+                                            MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                    )
+                }
 
                 Button(
                         onClick = { viewModel.verifyOtp(uiState.otp) },
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                         shape = RoundedCornerShape(12.dp),
-                        enabled = !uiState.isLoading && uiState.otp.isNotBlank()
+                        enabled =
+                                !uiState.isLoading &&
+                                        uiState.otp.length == 6 &&
+                                        !uiState.isLockedOut
                 ) {
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
@@ -229,13 +266,49 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
                         Text("Verify", fontSize = 16.sp)
                     }
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Resend OTP button with countdown
+                Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (uiState.resendCooldownSeconds > 0) {
+                        Text(
+                                text = "Resend OTP in ${uiState.resendCooldownSeconds}s",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        TextButton(
+                                onClick = {
+                                    context.findActivity()?.let { viewModel.resendOtp(it) }
+                                }
+                        ) {
+                            Text(
+                                    text = "Resend OTP",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                // Change number button
+                TextButton(onClick = { viewModel.goBackToPhoneInput() }) {
+                    Text(text = "Change Phone Number", color = MaterialTheme.colorScheme.secondary)
+                }
             }
 
             if (uiState.errorMessage != null) {
                 Text(
                         text = uiState.errorMessage ?: "",
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                 )
             }
 
